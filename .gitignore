@@ -1,0 +1,23 @@
+# Frontend
+frontend/node_modules/
+frontend/build/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Backend (Maven/Gradle)
+backend/target/
+backend/build/
+backend/.mvn/
+backend/out/
+
+# Database / Docker
+database/postgres_data/  # Αν αποθηκεύεις τα δεδομένα της βάσης σε φάκελο
+
+# IDEs & OS
+.idea/
+.vscode/
+*.swp
+*.class
+.DS_Store
