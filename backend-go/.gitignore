@@ -1,0 +1,22 @@
+# Go build
+/vetcloud
+*.exe
+
+# Dependencies
+/vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Environment
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage.out
+*.test

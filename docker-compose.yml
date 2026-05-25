@@ -1,0 +1,77 @@
+# VetCloud Docker Compose — Development
+# Usage: docker compose up -d
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: vetcloud-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pims_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d pims_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Go Backend API
+  backend:
+    build:
+      context: ./backend-go
+      dockerfile: Dockerfile
+    container_name: vetcloud-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://admin:password123@db:5432/pims_db?sslmode=disable
+      JWT_SECRET: change-this-in-production-please-use-a-long-random-string
+      SERVER_PORT: "8080"
+      CORS_ORIGIN: http://localhost:5173
+      SINGLE_TENANT: "true"
+      ENVIRONMENT: development
+    ports:
+      - "8080:8080"
+
+  # React Frontend (dev server)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: vetcloud-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:8080
+
+  # Caddy Reverse Proxy
+  caddy:
+    image: caddy:2-alpine
+    container_name: vetcloud-caddy
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
