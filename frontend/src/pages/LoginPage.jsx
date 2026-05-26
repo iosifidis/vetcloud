@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../context/axiosConfig';
+import { authAPI } from '../api';
 
 const LoginPage = () => {
   const [username, setUsername] = useState('');
@@ -15,31 +15,15 @@ const LoginPage = () => {
     setError('');
 
     try {
-      // Perform the actual API call to login
-      const response = await api.post('/api/auth/login', { username, password });
+      const response = await authAPI.login({ username, password });
 
-      // Expecting response.data to contain { token: "...", user: { ... } }
-      // Adjust based on actual backend response structure.
-      // Based on previous patterns, it might return AuthenticationResponse { token, user? }
+      // New backend returns: { accessToken, refreshToken, user: { id, username, email, firstName, lastName, role, isActive } }
+      const { accessToken, refreshToken, user } = response.data;
 
-      // If the backend only returns token, we might need to decode it or fetch user details.
-      // Assuming it returns at least the token.
-
-      const { token, ...userData } = response.data;
-
-      // If userData is empty (backend only returns token), we might need to fetch user profile
-      // For now, let's assume response.data has what we need or just store the token.
-
-      // FIX logic: AuthContext expects (userData, authToken)
-      // If backend response is just { token: "..." }, then userData is undefined.
-      // Let's verify backend response structure if possible.
-      // But typically it returns { token, ...userFields }
-
-      await login(userData, token);
+      login(user, accessToken, refreshToken);
       navigate('/');
     } catch (err) {
       console.error("Login error", err);
-      // Logic: Set error message based on status
       if (err.response && (err.response.status === 401 || err.response.status === 403)) {
         setError('Invalid username or password');
       } else if (err.response && err.response.status === 404) {

@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/iosifidis/vetcloud/internal/auth"
 	"github.com/iosifidis/vetcloud/internal/config"
 	"github.com/iosifidis/vetcloud/internal/middleware"
 )
@@ -70,8 +71,10 @@ func main() {
 		})
 	})
 
-	// TODO: Register domain handlers here (Phase 1+)
-	// auth.RegisterRoutes(r, cfg, pool)
+	// Register domain handlers
+	auth.RegisterRoutes(r, cfg, pool)
+
+	// TODO: Register remaining domain handlers (Phase 2+)
 	// client.RegisterRoutes(r, pool)
 	// patient.RegisterRoutes(r, pool)
 	// appointment.RegisterRoutes(r, pool)

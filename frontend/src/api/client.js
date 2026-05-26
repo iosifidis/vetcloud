@@ -69,10 +69,18 @@ api.interceptors.response.use(
 
       try {
         // Attempt to refresh the access token
-        const response = await api.post('/api/auth/refresh');
-        const { accessToken } = response.data;
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) {
+          throw new Error('No refresh token available');
+        }
+
+        const response = await api.post('/api/auth/refresh', { refreshToken });
+        const { accessToken, refreshToken: newRefreshToken } = response.data;
 
         localStorage.setItem('token', accessToken);
+        if (newRefreshToken) {
+          localStorage.setItem('refreshToken', newRefreshToken);
+        }
         api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
 
         processQueue(null, accessToken);
@@ -84,6 +92,7 @@ api.interceptors.response.use(
         // Refresh failed — clear auth state and redirect to login
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        localStorage.removeItem('refreshToken');
         window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {

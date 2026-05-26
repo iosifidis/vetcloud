@@ -38,7 +38,6 @@ const RegisterPage = () => {
         email: formData.email,
         username: formData.username,
         password: formData.password,
-        role: "VET"
       };
       
       console.log("Sending registration payload:", payload);

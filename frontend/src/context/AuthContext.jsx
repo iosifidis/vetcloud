@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from './axiosConfig';
+import { authAPI } from '../api';
 
 const AuthContext = createContext(null);
 
@@ -11,7 +11,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
-  // Lazy Init: Διαβάζουμε από το localStorage κατά την αρχικοποίηση
+  // Lazy Init: Read from localStorage on initialization
   const [user, setUser] = useState(() => {
     try {
       const savedUser = localStorage.getItem('user');
@@ -33,36 +33,55 @@ export const AuthProvider = ({ children }) => {
 
   const [loading, setLoading] = useState(false);
 
-  const login = (userData, authToken) => {
-    if (!authToken) {
-      console.error("No token received");
+  /**
+   * Login: stores access token + refresh token + user data.
+   * Called after successful API login response.
+   */
+  const login = (userData, accessToken, refreshToken) => {
+    if (!accessToken) {
+      console.error("No access token received");
       return;
     }
     setUser(userData);
-    setToken(authToken);
+    setToken(accessToken);
     localStorage.setItem('user', JSON.stringify(userData));
-    localStorage.setItem('token', authToken);
+    localStorage.setItem('token', accessToken);
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken);
+    }
   };
 
+  /**
+   * Register: creates a new user account.
+   * Returns the promise so the component can handle success/error.
+   */
   const register = async (userData) => {
-    // We just return the promise and let the component handle success/error
-    // because the flow might be different (e.g. redirect to login vs auto-login)
-    return await api.post('/api/auth/register', userData);
+    return await authAPI.register(userData);
   };
 
-  const logout = () => {
+  /**
+   * Logout: revokes refresh tokens server-side, then clears local state.
+   */
+  const logout = async () => {
+    // Try to revoke server-side (fire and forget)
+    try {
+      await authAPI.logout();
+    } catch (e) {
+      // Ignore errors — we're logging out regardless
+    }
+
     setUser(null);
     setToken(null);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
-    localStorage.clear(); // Καθαρίζουμε τα πάντα για σιγουριά
+    localStorage.removeItem('refreshToken');
     navigate('/login');
   };
 
   const value = {
     user,
     token,
-    isAuthenticated: !!token, // Αν υπάρχει token, θεωρούμε ότι είναι authenticated
+    isAuthenticated: !!token,
     loading,
     login,
     register,
