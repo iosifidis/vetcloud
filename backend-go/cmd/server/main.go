@@ -14,8 +14,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/iosifidis/vetcloud/internal/auth"
+	"github.com/iosifidis/vetcloud/internal/client"
 	"github.com/iosifidis/vetcloud/internal/config"
 	"github.com/iosifidis/vetcloud/internal/middleware"
+	"github.com/iosifidis/vetcloud/internal/patient"
 )
 
 func main() {
@@ -71,16 +73,19 @@ func main() {
 		})
 	})
 
+	// Create shared auth service (used by handlers for middleware)
+	authSvc := auth.NewService(cfg)
+
 	// Register domain handlers
 	auth.RegisterRoutes(r, cfg, pool)
+	client.RegisterRoutes(r, cfg, pool, authSvc)
+	patient.RegisterRoutes(r, cfg, pool, authSvc)
 
-	// TODO: Register remaining domain handlers (Phase 2+)
-	// client.RegisterRoutes(r, pool)
-	// patient.RegisterRoutes(r, pool)
-	// appointment.RegisterRoutes(r, pool)
-	// medical_record.RegisterRoutes(r, pool)
-	// dashboard.RegisterRoutes(r, pool)
-	// user.RegisterRoutes(r, pool)
+	// TODO: Register remaining domain handlers (Phase 3+)
+	// appointment.RegisterRoutes(r, cfg, pool, authSvc)
+	// medical_record.RegisterRoutes(r, cfg, pool, authSvc)
+	// dashboard.RegisterRoutes(r, cfg, pool, authSvc)
+	// user.RegisterRoutes(r, cfg, pool, authSvc)
 
 	// Create HTTP server
 	srv := &http.Server{
