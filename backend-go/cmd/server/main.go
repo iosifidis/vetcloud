@@ -17,8 +17,11 @@ import (
 	"github.com/iosifidis/vetcloud/internal/auth"
 	"github.com/iosifidis/vetcloud/internal/client"
 	"github.com/iosifidis/vetcloud/internal/config"
+	"github.com/iosifidis/vetcloud/internal/dashboard"
+	"github.com/iosifidis/vetcloud/internal/medicalrecord"
 	"github.com/iosifidis/vetcloud/internal/middleware"
 	"github.com/iosifidis/vetcloud/internal/patient"
+	"github.com/iosifidis/vetcloud/internal/user"
 )
 
 func main() {
@@ -82,11 +85,9 @@ func main() {
 	client.RegisterRoutes(r, cfg, pool, authSvc)
 	patient.RegisterRoutes(r, cfg, pool, authSvc)
 	appointment.RegisterRoutes(r, cfg, pool, authSvc)
-
-	// TODO: Register remaining domain handlers (Phase 4+)
-	// medical_record.RegisterRoutes(r, cfg, pool, authSvc)
-	// dashboard.RegisterRoutes(r, cfg, pool, authSvc)
-	// user.RegisterRoutes(r, cfg, pool, authSvc)
+	medicalrecord.RegisterRoutes(r, cfg, pool, authSvc)
+	dashboard.RegisterRoutes(r, cfg, pool, authSvc)
+	user.RegisterRoutes(r, cfg, pool, authSvc)
 
 	// Create HTTP server
 	srv := &http.Server{

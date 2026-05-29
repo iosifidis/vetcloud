@@ -95,3 +95,36 @@ func TimeVal(t pgtype.Timestamptz) string {
 	}
 	return t.Time.Format(time.RFC3339)
 }
+
+// PgFloat8 creates a pgtype.Float8.
+func PgFloat8(f *float64) pgtype.Float8 {
+	if f == nil {
+		return pgtype.Float8{Valid: false}
+	}
+	return pgtype.Float8{Float64: *f, Valid: true}
+}
+
+// Float8Val extracts a float64 from pgtype.Float8, returning 0 if NULL.
+func Float8Val(f pgtype.Float8) float64 {
+	if !f.Valid {
+		return 0
+	}
+	return f.Float64
+}
+
+// Int8Val extracts an int64 from pgtype.Int8, returning 0 if NULL.
+func Int8Val(n pgtype.Int8) int64 {
+	if !n.Valid {
+		return 0
+	}
+	return n.Int64
+}
+
+// Int8Ptr converts pgtype.Int8 to *int64, nil if NULL.
+func Int8Ptr(n pgtype.Int8) *int64 {
+	if !n.Valid {
+		return nil
+	}
+	return &n.Int64
+}
+
