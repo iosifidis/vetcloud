@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/iosifidis/vetcloud/internal/appointment"
 	"github.com/iosifidis/vetcloud/internal/auth"
 	"github.com/iosifidis/vetcloud/internal/client"
 	"github.com/iosifidis/vetcloud/internal/config"
@@ -80,9 +81,9 @@ func main() {
 	auth.RegisterRoutes(r, cfg, pool)
 	client.RegisterRoutes(r, cfg, pool, authSvc)
 	patient.RegisterRoutes(r, cfg, pool, authSvc)
+	appointment.RegisterRoutes(r, cfg, pool, authSvc)
 
-	// TODO: Register remaining domain handlers (Phase 3+)
-	// appointment.RegisterRoutes(r, cfg, pool, authSvc)
+	// TODO: Register remaining domain handlers (Phase 4+)
 	// medical_record.RegisterRoutes(r, cfg, pool, authSvc)
 	// dashboard.RegisterRoutes(r, cfg, pool, authSvc)
 	// user.RegisterRoutes(r, cfg, pool, authSvc)
