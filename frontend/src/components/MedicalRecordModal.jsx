@@ -42,7 +42,7 @@ const MedicalRecordModal = ({ record, onClose, onSave, token }) => {
             };
 
             await api.put(
-                `http://localhost:8080/api/medical-records/${record.id}`,
+                `/api/medical-records/${record.id}`,
                 payload,
                 { headers: { Authorization: `Bearer ${token}` } }
             );

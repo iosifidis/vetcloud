@@ -4,3 +4,4 @@ export { useAppointments } from './useAppointments';
 export { useMedicalRecords } from './useMedicalRecords';
 export { useDashboard } from './useDashboard';
 export { useDebounce } from './useDebounce';
+export { useUsers } from './useUsers';

@@ -1,13 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import api from '../context/axiosConfig';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { usersAPI } from '../api';
 
 const ProfilePage = () => {
-    const { token, user, logout } = useAuth();
-    const navigate = useNavigate();
+    const { user, logout, refreshToken } = useAuth();
 
-    // We keep form state
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
@@ -58,44 +55,42 @@ const ProfilePage = () => {
                 payload.password = formData.password;
             }
 
-            // Assuming endpoint is PUT /api/users/{id}
-            await api.put(`http://localhost:8080/api/users/${user.id}`, payload, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await usersAPI.update(user.id, payload);
 
-            setMessage({ type: 'success', text: 'Profile updated successfully. Please re-login if you changed your password.' });
+            setMessage({ type: 'success', text: 'Profile updated successfully.' });
 
-            // Should probably update context user too, but a re-login is safer if data changed significantly
             if (formData.password) {
+                setMessage({ type: 'success', text: 'Profile updated successfully. Please re-login.' });
                 setTimeout(() => logout(), 2000);
+            } else {
+                // Try to refresh token so new data is reflected in context (if the token contains this info)
+                // or the context handles it elsewhere.
             }
 
         } catch (err) {
             console.error("Error updating profile:", err);
-            setMessage({ type: 'error', text: 'Failed to update profile.' });
+            setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to update profile.' });
         } finally {
             setSaving(false);
         }
     };
 
     const handleDeleteAccount = async () => {
-        if (!window.confirm("CRITICAL WARNING: Are you sure you want to delete your account? This cannot be undone. Your medical records will be preserved alongside a placeholder doctor.")) {
+        if (!window.confirm("CRITICAL WARNING: Are you sure you want to delete your account? This cannot be undone.")) {
             return;
         }
 
         try {
-            await api.delete(`http://localhost:8080/api/users/${user.id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await usersAPI.delete(user.id);
             alert("Account deleted.");
             logout();
         } catch (err) {
             console.error("Error deleting account:", err);
-            alert("Failed to delete account.");
+            alert(err.response?.data?.message || "Failed to delete account.");
         }
     };
 
-    if (loading) return <div className="p-8">Loading profile...</div>;
+    if (loading) return <div className="p-8 text-center text-gray-500">Loading profile...</div>;
 
     return (
         <div className="p-8 max-w-2xl mx-auto">
@@ -107,7 +102,7 @@ const ProfilePage = () => {
                 </div>
             )}
 
-            <div className="bg-white rounded-lg shadow-md p-8">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
                 <form onSubmit={handleUpdate} className="space-y-6">
                     <div className="grid grid-cols-2 gap-6">
                         <div>

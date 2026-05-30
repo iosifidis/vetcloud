@@ -70,6 +70,8 @@ export const usersAPI = {
   getById: (id) => api.get(`/api/users/${id}`),
   create: (data) => api.post('/api/users', data),
   update: (id, data) => api.put(`/api/users/${id}`, data),
+  deactivate: (id) => api.put(`/api/users/${id}`, { isActive: false }),
+  activate: (id) => api.put(`/api/users/${id}`, { isActive: true }),
   delete: (id) => api.delete(`/api/users/${id}`),
 };
 
@@ -78,4 +80,14 @@ export const usersAPI = {
  */
 export const dashboardAPI = {
   getStats: () => api.get('/api/dashboard/stats'),
+};
+
+/**
+ * Patient Alerts API calls.
+ */
+export const alertsAPI = {
+  listByPatient: (patientId) => api.get(`/api/patients/${patientId}/alerts`),
+  create: (patientId, data) => api.post(`/api/patients/${patientId}/alerts`, data),
+  update: (alertId, data) => api.put(`/api/patients/alerts/${alertId}`, data),
+  delete: (alertId) => api.delete(`/api/patients/alerts/${alertId}`),
 };

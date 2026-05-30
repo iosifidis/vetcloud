@@ -6,7 +6,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import api from '../context/axiosConfig';
 import { useAuth } from '../context/AuthContext';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = '/api';
 
 const APPOINTMENT_TYPES = [
     { value: 'EXAM', label: 'Exam', color: '#3b82f6' },

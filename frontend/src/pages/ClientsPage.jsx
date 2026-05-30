@@ -24,7 +24,7 @@ const ClientsPage = () => {
 
     const fetchClients = async () => {
         try {
-            const response = await api.get('http://localhost:8080/api/clients', {
+            const response = await api.get('/api/clients', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setClients(response.data || []);
@@ -81,7 +81,7 @@ const ClientsPage = () => {
         if (!window.confirm('Are you sure you want to delete this pet owner? This action cannot be undone.')) return;
 
         try {
-            await api.delete(`http://localhost:8080/api/clients/${id}`, {
+            await api.delete(`/api/clients/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             fetchClients();
@@ -313,12 +313,12 @@ const ClientModal = ({ client, onClose, onSave, token, readOnly = false }) => {
 
             if (client) {
                 await api.put(
-                    `http://localhost:8080/api/clients/${client.id}`,
+                    `/api/clients/${client.id}`,
                     formData,
                     config
                 );
             } else {
-                await api.post('http://localhost:8080/api/clients', formData, config);
+                await api.post('/api/clients', formData, config);
             }
 
             onSave();
@@ -532,7 +532,7 @@ const PetManagerModal = ({ client, allClients, onClose, token }) => {
             // but usually owner is immutable in simple updates. 
             // Let's try a semantic URL which is likely implemented for this specific story.
             await api.put(
-                `http://localhost:8080/api/patients/${transferPetId}/owner/${targetClient.id}`,
+                `/api/patients/${transferPetId}/owner/${targetClient.id}`,
                 {},
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -588,7 +588,7 @@ const PetManagerModal = ({ client, allClients, onClose, token }) => {
         setLoading(true);
         try {
             const response = await api.get(
-                `http://localhost:8080/api/patients/owner/${client.id}`,
+                `/api/patients/owner/${client.id}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setPets(response.data || []);
@@ -653,14 +653,14 @@ const PetManagerModal = ({ client, allClients, onClose, token }) => {
             if (editingPetId) {
                 // UPDATE existing pet
                 await api.put(
-                    `http://localhost:8080/api/patients/${editingPetId}`,
+                    `/api/patients/${editingPetId}`,
                     payload,
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
             } else {
                 // CREATE new pet
                 await api.post(
-                    `http://localhost:8080/api/clients/${client.id}/patients`,
+                    `/api/clients/${client.id}/patients`,
                     payload,
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
@@ -681,7 +681,7 @@ const PetManagerModal = ({ client, allClients, onClose, token }) => {
 
         try {
             await api.delete(
-                `http://localhost:8080/api/patients/${petId}`,
+                `/api/patients/${petId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             await fetchPets();
@@ -696,7 +696,7 @@ const PetManagerModal = ({ client, allClients, onClose, token }) => {
 
         try {
             await api.put(
-                `http://localhost:8080/api/patients/${petId}/status`,
+                `/api/patients/${petId}/status`,
                 { isDeceased: true },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -1031,7 +1031,7 @@ const ClientHistoryModal = ({ client, onClose, token }) => {
         setLoading(true);
         try {
             const response = await api.get(
-                `http://localhost:8080/api/medical-records/client/${client.id}`,
+                `/api/medical-records/client/${client.id}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setRecords(response.data || []);

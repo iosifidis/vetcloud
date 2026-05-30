@@ -37,6 +37,12 @@ func RegisterRoutes(r chi.Router, cfg *config.Config, pool *pgxpool.Pool, authSv
 		r.Get("/owner/{ownerId}", h.ListByOwner)
 		r.Put("/{id}/status", h.MarkDeceased)
 		r.Put("/{id}/owner/{ownerId}", h.Transfer)
+
+		// Patient alerts sub-resource
+		r.Get("/{id}/alerts", h.ListAlerts)
+		r.Post("/{id}/alerts", h.CreateAlert)
+		r.Put("/alerts/{alertId}", h.UpdateAlert)
+		r.Delete("/alerts/{alertId}", h.DeleteAlert)
 	})
 }
 

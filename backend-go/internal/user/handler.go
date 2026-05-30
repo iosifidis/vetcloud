@@ -35,12 +35,16 @@ func RegisterRoutes(r chi.Router, cfg *config.Config, pool *pgxpool.Pool, authSv
 	r.Route("/api/users", func(r chi.Router) {
 		r.Use(auth.Middleware(authSvc))
 
-		r.Get("/", h.List)
+		// Any authenticated user can list vets (needed for appointment form)
 		r.Get("/vets", h.ListVets)
+		// Profile access — owner or ADMIN
 		r.Get("/{id}", h.GetByID)
-		r.Post("/", h.Create)
 		r.Put("/{id}", h.Update)
-		r.Delete("/{id}", h.Delete)
+
+		// ADMIN-only routes
+		r.With(auth.RequireRole("ADMIN")).Get("/", h.List)
+		r.With(auth.RequireRole("ADMIN")).Post("/", h.Create)
+		r.With(auth.RequireRole("ADMIN")).Delete("/{id}", h.Delete)
 	})
 }
 
@@ -127,12 +131,20 @@ func (h *Handler) ListVets(w http.ResponseWriter, r *http.Request) {
 	middleware.RespondJSON(w, http.StatusOK, result)
 }
 
-// GetByID returns a user by ID.
+// GetByID returns a user by ID. Only the user themselves or an ADMIN may access.
 func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r, "id")
 	if err != nil {
 		middleware.RespondJSON(w, http.StatusBadRequest, middleware.ErrorResponse{
 			Error: "Bad Request", Message: "invalid user ID",
+		})
+		return
+	}
+
+	caller := auth.UserFromContext(r.Context())
+	if caller.Role != "ADMIN" && caller.UserID != id {
+		middleware.RespondJSON(w, http.StatusForbidden, middleware.ErrorResponse{
+			Error: "Forbidden", Message: "insufficient permissions",
 		})
 		return
 	}
@@ -228,12 +240,21 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	middleware.RespondJSON(w, http.StatusCreated, res)
 }
 
-// Update updates an existing user.
+// Update updates an existing user. Only the user themselves or an ADMIN may update.
+// Only ADMINs may change the isActive field (deactivation).
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r, "id")
 	if err != nil {
 		middleware.RespondJSON(w, http.StatusBadRequest, middleware.ErrorResponse{
 			Error: "Bad Request", Message: "invalid user ID",
+		})
+		return
+	}
+
+	caller := auth.UserFromContext(r.Context())
+	if caller.Role != "ADMIN" && caller.UserID != id {
+		middleware.RespondJSON(w, http.StatusForbidden, middleware.ErrorResponse{
+			Error: "Forbidden", Message: "insufficient permissions",
 		})
 		return
 	}
@@ -244,6 +265,11 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 			Error: "Bad Request", Message: "invalid request body",
 		})
 		return
+	}
+
+	// Only admins may toggle isActive (deactivation)
+	if req.IsActive != nil && caller.Role != "ADMIN" {
+		req.IsActive = nil
 	}
 
 	var emailVal pgtype.Text

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../context/axiosConfig';
 import { format } from 'date-fns';
 
 const PatientHistory = ({ patientId }) => {
@@ -15,7 +15,7 @@ const PatientHistory = ({ patientId }) => {
       setError(null);
       try {
         // Assuming the backend supports filtering by patientId via query param
-        const response = await axios.get(`http://localhost:8080/api/medical-records?patientId=${patientId}`);
+        const response = await api.get(`/api/medical-records?patientId=${patientId}`);
         setHistory(response.data);
       } catch (err) {
         console.error("Error fetching patient history:", err);
