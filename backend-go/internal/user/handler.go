@@ -142,7 +142,7 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	caller := auth.UserFromContext(r.Context())
-	if caller.Role != "ADMIN" && caller.UserID != id {
+	if caller == nil || (caller.Role != "ADMIN" && caller.UserID != id) {
 		middleware.RespondJSON(w, http.StatusForbidden, middleware.ErrorResponse{
 			Error: "Forbidden", Message: "insufficient permissions",
 		})
@@ -252,7 +252,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	caller := auth.UserFromContext(r.Context())
-	if caller.Role != "ADMIN" && caller.UserID != id {
+	if caller == nil || (caller.Role != "ADMIN" && caller.UserID != id) {
 		middleware.RespondJSON(w, http.StatusForbidden, middleware.ErrorResponse{
 			Error: "Forbidden", Message: "insufficient permissions",
 		})
@@ -267,8 +267,8 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only admins may toggle isActive (deactivation)
-	if req.IsActive != nil && caller.Role != "ADMIN" {
+	// Only admins may toggle isActive (deactivation); silently ignore for non-admins
+	if req.IsActive != nil && (caller == nil || caller.Role != "ADMIN") {
 		req.IsActive = nil
 	}
 

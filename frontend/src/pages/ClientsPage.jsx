@@ -8,7 +8,7 @@ import MedicalRecordModal from '../components/MedicalRecordModal';
 // MAIN COMPONENT: ClientsPage
 // ============================================
 const ClientsPage = () => {
-    const { token } = useAuth();
+    const { token, user } = useAuth();
     const [clients, setClients] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -24,9 +24,7 @@ const ClientsPage = () => {
 
     const fetchClients = async () => {
         try {
-            const response = await api.get('/api/clients', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const response = await api.get('/api/clients');
             setClients(response.data || []);
         } catch (error) {
             console.error('Error fetching clients:', error);
@@ -81,9 +79,7 @@ const ClientsPage = () => {
         if (!window.confirm('Are you sure you want to delete this pet owner? This action cannot be undone.')) return;
 
         try {
-            await api.delete(`/api/clients/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await api.delete(`/api/clients/${id}`);
             fetchClients();
         } catch (error) {
             console.error('Error deleting client:', error);
@@ -309,7 +305,7 @@ const ClientModal = ({ client, onClose, onSave, token, readOnly = false }) => {
         setSaving(true);
 
         try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const config = undefined;
 
             if (client) {
                 await api.put(
@@ -534,7 +530,7 @@ const PetManagerModal = ({ client, allClients, onClose, token }) => {
             await api.put(
                 `/api/patients/${transferPetId}/owner/${targetClient.id}`,
                 {},
-                { headers: { Authorization: `Bearer ${token}` } }
+                undefined
             );
 
             alert("Pet transferred successfully.");
@@ -589,7 +585,7 @@ const PetManagerModal = ({ client, allClients, onClose, token }) => {
         try {
             const response = await api.get(
                 `/api/patients/owner/${client.id}`,
-                { headers: { Authorization: `Bearer ${token}` } }
+                undefined
             );
             setPets(response.data || []);
         } catch (error) {
@@ -655,14 +651,14 @@ const PetManagerModal = ({ client, allClients, onClose, token }) => {
                 await api.put(
                     `/api/patients/${editingPetId}`,
                     payload,
-                    { headers: { Authorization: `Bearer ${token}` } }
+                    undefined
                 );
             } else {
                 // CREATE new pet
                 await api.post(
                     `/api/clients/${client.id}/patients`,
                     payload,
-                    { headers: { Authorization: `Bearer ${token}` } }
+                    undefined
                 );
             }
 
@@ -682,7 +678,7 @@ const PetManagerModal = ({ client, allClients, onClose, token }) => {
         try {
             await api.delete(
                 `/api/patients/${petId}`,
-                { headers: { Authorization: `Bearer ${token}` } }
+                undefined
             );
             await fetchPets();
         } catch (error) {
@@ -698,7 +694,7 @@ const PetManagerModal = ({ client, allClients, onClose, token }) => {
             await api.put(
                 `/api/patients/${petId}/status`,
                 { isDeceased: true },
-                { headers: { Authorization: `Bearer ${token}` } }
+                undefined
             );
             await fetchPets();
         } catch (error) {
@@ -1032,7 +1028,7 @@ const ClientHistoryModal = ({ client, onClose, token }) => {
         try {
             const response = await api.get(
                 `/api/medical-records/client/${client.id}`,
-                { headers: { Authorization: `Bearer ${token}` } }
+                undefined
             );
             setRecords(response.data || []);
         } catch (error) {

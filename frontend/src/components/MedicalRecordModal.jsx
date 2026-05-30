@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import api from '../context/axiosConfig';
+import { medicalRecordsAPI } from '../api';
 
-const MedicalRecordModal = ({ record, onClose, onSave, token }) => {
+const MedicalRecordModal = ({ record, onClose, onSave }) => {
     const [formData, setFormData] = useState({
         weight: '',
         temperature: '',
@@ -32,21 +32,13 @@ const MedicalRecordModal = ({ record, onClose, onSave, token }) => {
         e.preventDefault();
         setSaving(true);
         try {
-            const payload = {
-                id: record.id,
-                weight: parseFloat(formData.weight),
-                temperature: parseFloat(formData.temperature),
+            await medicalRecordsAPI.update(record.id, {
+                weight: parseFloat(formData.weight) || null,
+                temperature: parseFloat(formData.temperature) || null,
                 symptoms: formData.symptoms,
                 diagnosis: formData.diagnosis,
-                treatment: formData.treatment
-            };
-
-            await api.put(
-                `/api/medical-records/${record.id}`,
-                payload,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-
+                treatment: formData.treatment,
+            });
             onSave();
         } catch (error) {
             console.error('Error updating record:', error);

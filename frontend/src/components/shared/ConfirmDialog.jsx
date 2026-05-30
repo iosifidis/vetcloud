@@ -10,7 +10,8 @@ import React from 'react';
  * @param {string} title - Dialog title
  * @param {string} message - Dialog message
  * @param {string} confirmText - Text for confirm button (default: 'Confirm')
- * @param {string} confirmClass - CSS class for confirm button
+ * @param {string} confirmClass - Custom CSS class for confirm button (overrides isDestructive)
+ * @param {boolean} isDestructive - When true, uses a red danger style for confirm button
  */
 const ConfirmDialog = ({
   isOpen,
@@ -19,9 +20,12 @@ const ConfirmDialog = ({
   title = 'Confirm Action',
   message = 'Are you sure?',
   confirmText = 'Confirm',
-  confirmClass = 'bg-red-600 hover:bg-red-700',
+  confirmClass,
+  isDestructive = false,
 }) => {
   if (!isOpen) return null;
+
+  const btnClass = confirmClass || (isDestructive ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
@@ -37,7 +41,7 @@ const ConfirmDialog = ({
           </button>
           <button
             onClick={onConfirm}
-            className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors ${confirmClass}`}
+            className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors ${btnClass}`}
           >
             {confirmText}
           </button>

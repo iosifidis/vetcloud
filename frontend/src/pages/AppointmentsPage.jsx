@@ -197,14 +197,12 @@ const PatientHistoryModal = ({ patient, onClose, onViewRecord, onEditRecord, tok
 
     useEffect(() => {
         if (patient?.id) {
-            api.get(`${API_BASE_URL}/medical-records/patient/${patient.id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            })
+            api.get(`${API_BASE_URL}/medical-records/patient/${patient.id}`)
                 .then(res => setRecords(res.data))
                 .catch(err => console.error("Error fetching history:", err))
                 .finally(() => setLoading(false));
         }
-    }, [patient, token]);
+    }, [patient]);
 
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
@@ -519,7 +517,7 @@ const AppointmentsPage = () => {
     // ============================================
     const fetchAppointments = useCallback(async () => {
         try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const config = undefined;
             const response = await api.get(`${API_BASE_URL}/appointments`, config);
             const formattedEvents = response.data.map(appt => {
                 const typeConfig = APPOINTMENT_TYPES.find(t => t.value === appt.type) || APPOINTMENT_TYPES[0];
@@ -569,7 +567,7 @@ const AppointmentsPage = () => {
 
     const fetchClients = useCallback(async () => {
         try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const config = undefined;
             const response = await api.get(`${API_BASE_URL}/clients`, config);
             setClients(response.data);
         } catch (error) {
@@ -579,7 +577,7 @@ const AppointmentsPage = () => {
 
     const fetchVets = useCallback(async () => {
         try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const config = undefined;
             const response = await api.get(`${API_BASE_URL}/users/vets`, config);
             setVets(response.data);
         } catch (error) {
@@ -608,9 +606,7 @@ const AppointmentsPage = () => {
         setPatientsLoading(true);
         try {
             // FIX: Use the correct endpoint matching ClientsPage
-            const response = await api.get(`${API_BASE_URL}/patients/owner/${clientId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const response = await api.get(`${API_BASE_URL}/patients/owner/${clientId}`);
             setPatients(response.data);
             console.log("Fetched pets:", response.data);
         } catch (err) {
@@ -619,7 +615,7 @@ const AppointmentsPage = () => {
         } finally {
             setPatientsLoading(false);
         }
-    }, [token]);
+    }, []);
 
     // Safe Data Parsing for Modal (Robust Logic)
     useEffect(() => {
@@ -813,9 +809,7 @@ const AppointmentsPage = () => {
         });
 
         try {
-            await api.put(`${API_BASE_URL}/appointments/${event.id}`, payload, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await api.put(`${API_BASE_URL}/appointments/${event.id}`, payload);
             alert('Appointment moved!');
             fetchAppointments();
         } catch (error) {
@@ -900,7 +894,7 @@ const AppointmentsPage = () => {
         };
 
         try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const config = undefined;
 
             if (selectedAppointment?.id) {
                 // Update existing
@@ -927,7 +921,7 @@ const AppointmentsPage = () => {
         }
 
         try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const config = undefined;
             await api.delete(`${API_BASE_URL}/appointments/${selectedAppointment.id}`, config);
             setShowModal(false);
             resetForm();
@@ -942,7 +936,7 @@ const AppointmentsPage = () => {
         if (!selectedAppointment?.id) return;
 
         try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const config = undefined;
 
             // Step 1: Call generic API to update status to IN_PROGRESS
             const payload = formatPayload(selectedAppointment, { status: 'IN_PROGRESS' });
@@ -967,7 +961,7 @@ const AppointmentsPage = () => {
     const handleViewRecord = async () => {
         if (!selectedAppointment?.id) return;
         try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const config = undefined;
             const response = await api.get(`${API_BASE_URL}/medical-records/appointment/${selectedAppointment.id}`, config);
 
             setExamInitialData(response.data);
@@ -1002,7 +996,7 @@ const AppointmentsPage = () => {
         if (!examAppointment?.id) return;
 
         try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const config = undefined;
 
             const payload = {
                 appointmentId: examAppointment.id,
@@ -1076,7 +1070,7 @@ const AppointmentsPage = () => {
         if (!examInitialData?.id) return;
 
         try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const config = undefined;
             const payload = {
                 id: examInitialData.id,
                 weight: parseFloat(examData.weight),

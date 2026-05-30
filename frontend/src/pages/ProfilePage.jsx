@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { usersAPI } from '../api';
 
 const ProfilePage = () => {
-    const { user, logout, refreshToken } = useAuth();
+    const { user, logout } = useAuth();
 
     const [formData, setFormData] = useState({
         firstName: '',
@@ -57,14 +57,11 @@ const ProfilePage = () => {
 
             await usersAPI.update(user.id, payload);
 
-            setMessage({ type: 'success', text: 'Profile updated successfully.' });
-
             if (formData.password) {
                 setMessage({ type: 'success', text: 'Profile updated successfully. Please re-login.' });
                 setTimeout(() => logout(), 2000);
             } else {
-                // Try to refresh token so new data is reflected in context (if the token contains this info)
-                // or the context handles it elsewhere.
+                setMessage({ type: 'success', text: 'Profile updated successfully.' });
             }
 
         } catch (err) {
