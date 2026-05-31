@@ -105,6 +105,27 @@ type Role struct {
 	Permissions []string `json:"permissions"`
 }
 
+type Tenant struct {
+	ID         int64              `json:"id"`
+	Name       string             `json:"name"`
+	Slug       string             `json:"slug"`
+	DbUrl      string             `json:"db_url"`
+	Plan       string             `json:"plan"`
+	IsActive   bool               `json:"is_active"`
+	OwnerEmail string             `json:"owner_email"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type TenantSetting struct {
+	TenantID       int64              `json:"tenant_id"`
+	ClinicName     string             `json:"clinic_name"`
+	PrimaryColor   string             `json:"primary_color"`
+	SecondaryColor string             `json:"secondary_color"`
+	LogoUrl        pgtype.Text        `json:"logo_url"`
+	EnabledModules []string           `json:"enabled_modules"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type User struct {
 	ID           int64              `json:"id"`
 	Username     string             `json:"username"`

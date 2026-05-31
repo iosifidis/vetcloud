@@ -20,12 +20,21 @@ import (
 
 // Handler handles client HTTP requests.
 type Handler struct {
-	queries *db.Queries
+	defaultQueries *db.Queries
+}
+
+// getQueries returns the database queries for the current tenant.
+func (h *Handler) getQueries(r *http.Request) *db.Queries {
+	pool := middleware.TenantPoolFromContext(r.Context())
+	if pool != nil {
+		return db.New(pool)
+	}
+	return h.defaultQueries
 }
 
 // RegisterRoutes mounts client routes.
 func RegisterRoutes(r chi.Router, cfg *config.Config, pool *pgxpool.Pool, authSvc *auth.Service) {
-	h := &Handler{queries: db.New(pool)}
+	h := &Handler{defaultQueries: db.New(pool)}
 
 	r.Route("/api/clients", func(r chi.Router) {
 		r.Use(auth.Middleware(authSvc))
@@ -91,7 +100,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	search := r.URL.Query().Get("search")
 
 	if search != "" {
-		clients, err := h.queries.SearchClients(r.Context(), helpers.PgText(search))
+		clients, err := h.getQueries(r).SearchClients(r.Context(), helpers.PgText(search))
 		if err != nil {
 			log.Printf("ERROR: search clients: %v", err)
 			middleware.RespondError(w, err)
@@ -105,7 +114,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clients, err := h.queries.ListClients(r.Context())
+	clients, err := h.getQueries(r).ListClients(r.Context())
 	if err != nil {
 		log.Printf("ERROR: list clients: %v", err)
 		middleware.RespondError(w, err)
@@ -128,7 +137,7 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, err := h.queries.GetClientByID(r.Context(), id)
+	client, err := h.getQueries(r).GetClientByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			middleware.RespondJSON(w, http.StatusNotFound, middleware.ErrorResponse{
@@ -160,7 +169,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, err := h.queries.CreateClient(r.Context(), db.CreateClientParams{
+	client, err := h.getQueries(r).CreateClient(r.Context(), db.CreateClientParams{
 		FirstName:        req.FirstName,
 		LastName:         req.LastName,
 		Email:            req.Email,
@@ -198,7 +207,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, err := h.queries.UpdateClient(r.Context(), db.UpdateClientParams{
+	client, err := h.getQueries(r).UpdateClient(r.Context(), db.UpdateClientParams{
 		ID:               id,
 		FirstName:        req.FirstName,
 		LastName:         req.LastName,
@@ -235,7 +244,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.queries.DeleteClient(r.Context(), id); err != nil {
+	if err := h.getQueries(r).DeleteClient(r.Context(), id); err != nil {
 		log.Printf("ERROR: delete client: %v", err)
 		middleware.RespondError(w, err)
 		return
@@ -255,7 +264,7 @@ func (h *Handler) AddPatient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify client exists
-	if _, err := h.queries.GetClientByID(r.Context(), clientID); err != nil {
+	if _, err := h.getQueries(r).GetClientByID(r.Context(), clientID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			middleware.RespondJSON(w, http.StatusNotFound, middleware.ErrorResponse{
 				Error: "Not Found", Message: "client not found",
@@ -281,7 +290,7 @@ func (h *Handler) AddPatient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	patient, err := h.queries.CreatePatient(r.Context(), db.CreatePatientParams{
+	patient, err := h.getQueries(r).CreatePatient(r.Context(), db.CreatePatientParams{
 		ClientID:          clientID,
 		Name:              req.Name,
 		Species:           req.Species,

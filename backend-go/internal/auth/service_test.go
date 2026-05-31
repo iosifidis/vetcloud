@@ -44,7 +44,7 @@ func TestHashAndCheckPassword(t *testing.T) {
 func TestGenerateAndValidateAccessToken(t *testing.T) {
 	svc := NewService(testConfig())
 
-	token, err := svc.GenerateAccessToken(42, "testuser", "VET")
+	token, err := svc.GenerateAccessToken(42, "testuser", "VET", "test-tenant")
 	if err != nil {
 		t.Fatalf("GenerateAccessToken() error: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestValidateExpiredToken(t *testing.T) {
 	cfg.AccessTokenDuration = -1 * time.Second // Already expired
 	svc := NewService(cfg)
 
-	token, err := svc.GenerateAccessToken(1, "expired", "VET")
+	token, err := svc.GenerateAccessToken(1, "expired", "VET", "test-tenant")
 	if err != nil {
 		t.Fatalf("GenerateAccessToken() error: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestValidateInvalidToken(t *testing.T) {
 
 func TestValidateTokenWithWrongSecret(t *testing.T) {
 	svc1 := NewService(testConfig())
-	token, _ := svc1.GenerateAccessToken(1, "user", "VET")
+	token, _ := svc1.GenerateAccessToken(1, "user", "VET", "test-tenant")
 
 	cfg2 := testConfig()
 	cfg2.JWTSecret = "different-secret-key-minimum-32-chars"

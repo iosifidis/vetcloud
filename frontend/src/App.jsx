@@ -12,11 +12,13 @@ import RegisterPage from "./pages/RegisterPage";
 import PatientsPage from "./pages/PatientsPage";
 import UsersPage from "./pages/UsersPage";
 import ProfilePage from "./pages/ProfilePage";
+import TenantSettingsPage from "./pages/TenantSettingsPage";
 
 // Component Imports
 import ProtectedRoute from "./components/ProtectedRoute";
 import MainLayout from "./components/MainLayout";
 import { AuthProvider } from "./context/AuthContext";
+import { TenantProvider } from "./context/TenantContext";
 
 // Placeholder Components
 
@@ -31,7 +33,8 @@ const FinancialsPage = () => (
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
+      <TenantProvider>
+        <AuthProvider>
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<LoginPage />} />
@@ -47,10 +50,12 @@ function App() {
               <Route path="/financials" element={<FinancialsPage />} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/settings/tenant" element={<TenantSettingsPage />} />
             </Route>
           </Route>
         </Routes>
-      </AuthProvider>
+        </AuthProvider>
+      </TenantProvider>
     </BrowserRouter>
   );
 }

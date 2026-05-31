@@ -15,9 +15,10 @@ const userContextKey contextKey = "authUser"
 
 // UserInfo holds the authenticated user data stored in the request context.
 type UserInfo struct {
-	UserID   int64
-	Username string
-	Role     string
+	UserID     int64
+	Username   string
+	Role       string
+	TenantSlug string
 }
 
 // Middleware creates an HTTP middleware that validates JWT access tokens.
@@ -54,9 +55,10 @@ func Middleware(authService *Service) func(http.Handler) http.Handler {
 
 			// Store user info in context
 			userInfo := &UserInfo{
-				UserID:   claims.UserID,
-				Username: claims.Username,
-				Role:     claims.Role,
+				UserID:     claims.UserID,
+				Username:   claims.Username,
+				Role:       claims.Role,
+				TenantSlug: claims.TenantSlug,
 			}
 			ctx := context.WithValue(r.Context(), userContextKey, userInfo)
 			next.ServeHTTP(w, r.WithContext(ctx))

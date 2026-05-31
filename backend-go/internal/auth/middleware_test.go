@@ -43,7 +43,7 @@ func TestMiddleware_InvalidFormat(t *testing.T) {
 func TestMiddleware_ValidToken(t *testing.T) {
 	svc := NewService(testConfig())
 
-	token, _ := svc.GenerateAccessToken(42, "testuser", "VET")
+	token, _ := svc.GenerateAccessToken(42, "testuser", "VET", "test-tenant")
 
 	var capturedUser *UserInfo
 	handler := Middleware(svc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -81,7 +81,7 @@ func TestMiddleware_ExpiredToken(t *testing.T) {
 	}
 	svc := NewService(cfg)
 
-	token, _ := svc.GenerateAccessToken(1, "expired", "VET")
+	token, _ := svc.GenerateAccessToken(1, "expired", "VET", "test-tenant")
 
 	handler := Middleware(NewService(testConfig()))(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("handler should not be called with expired token")
@@ -99,7 +99,7 @@ func TestMiddleware_ExpiredToken(t *testing.T) {
 
 func TestRequireRole_Allowed(t *testing.T) {
 	svc := NewService(testConfig())
-	token, _ := svc.GenerateAccessToken(1, "admin", "ADMIN")
+	token, _ := svc.GenerateAccessToken(1, "admin", "ADMIN", "test-tenant")
 
 	handler := Middleware(svc)(RequireRole("ADMIN")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -117,7 +117,7 @@ func TestRequireRole_Allowed(t *testing.T) {
 
 func TestRequireRole_Denied(t *testing.T) {
 	svc := NewService(testConfig())
-	token, _ := svc.GenerateAccessToken(1, "vet", "VET")
+	token, _ := svc.GenerateAccessToken(1, "vet", "VET", "test-tenant")
 
 	handler := Middleware(svc)(RequireRole("ADMIN")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("handler should not be called without required role")

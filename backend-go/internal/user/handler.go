@@ -21,15 +21,24 @@ import (
 
 // Handler handles user HTTP requests.
 type Handler struct {
-	queries *db.Queries
-	authSvc *auth.Service
+	defaultQueries *db.Queries
+	authSvc        *auth.Service
+}
+
+// getQueries returns the database queries for the current tenant.
+func (h *Handler) getQueries(r *http.Request) *db.Queries {
+	pool := middleware.TenantPoolFromContext(r.Context())
+	if pool != nil {
+		return db.New(pool)
+	}
+	return h.defaultQueries
 }
 
 // RegisterRoutes mounts user routes.
 func RegisterRoutes(r chi.Router, cfg *config.Config, pool *pgxpool.Pool, authSvc *auth.Service) {
 	h := &Handler{
-		queries: db.New(pool),
-		authSvc: authSvc,
+		defaultQueries: db.New(pool),
+		authSvc:        authSvc,
 	}
 
 	r.Route("/api/users", func(r chi.Router) {
@@ -85,7 +94,7 @@ type userUpdateRequest struct {
 
 // List returns all users.
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	users, err := h.queries.ListUsers(r.Context())
+	users, err := h.getQueries(r).ListUsers(r.Context())
 	if err != nil {
 		log.Printf("ERROR: list users: %v", err)
 		middleware.RespondError(w, err)
@@ -109,7 +118,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 // ListVets returns all active veterinarians.
 func (h *Handler) ListVets(w http.ResponseWriter, r *http.Request) {
-	vets, err := h.queries.ListVets(r.Context())
+	vets, err := h.getQueries(r).ListVets(r.Context())
 	if err != nil {
 		log.Printf("ERROR: list vets: %v", err)
 		middleware.RespondError(w, err)
@@ -149,7 +158,7 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := h.queries.GetUserByID(r.Context(), id)
+	u, err := h.getQueries(r).GetUserByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			middleware.RespondJSON(w, http.StatusNotFound, middleware.ErrorResponse{
@@ -194,7 +203,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 1. Get role by name
-	role, err := h.queries.GetRoleByName(r.Context(), req.RoleName)
+	role, err := h.getQueries(r).GetRoleByName(r.Context(), req.RoleName)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			middleware.RespondJSON(w, http.StatusBadRequest, middleware.ErrorResponse{
@@ -214,7 +223,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Insert user
-	u, err := h.queries.CreateUser(r.Context(), db.CreateUserParams{
+	u, err := h.getQueries(r).CreateUser(r.Context(), db.CreateUserParams{
 		Username:     req.Username,
 		PasswordHash: hashed,
 		Email:        helpers.PgText(req.Email),
@@ -289,7 +298,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		activeVal = helpers.PgBoolVal(*req.IsActive)
 	}
 
-	u, err := h.queries.UpdateUser(r.Context(), db.UpdateUserParams{
+	u, err := h.getQueries(r).UpdateUser(r.Context(), db.UpdateUserParams{
 		ID:        id,
 		Email:     emailVal,
 		FirstName: firstVal,
@@ -328,7 +337,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.queries.DeleteUser(r.Context(), id)
+	err = h.getQueries(r).DeleteUser(r.Context(), id)
 	if err != nil {
 		middleware.RespondError(w, err)
 		return

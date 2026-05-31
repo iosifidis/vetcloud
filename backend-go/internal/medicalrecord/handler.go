@@ -21,12 +21,21 @@ import (
 
 // Handler handles medical record HTTP requests.
 type Handler struct {
-	queries *db.Queries
+	defaultQueries *db.Queries
+}
+
+// getQueries returns the database queries for the current tenant.
+func (h *Handler) getQueries(r *http.Request) *db.Queries {
+	pool := middleware.TenantPoolFromContext(r.Context())
+	if pool != nil {
+		return db.New(pool)
+	}
+	return h.defaultQueries
 }
 
 // RegisterRoutes mounts medical record routes.
 func RegisterRoutes(r chi.Router, cfg *config.Config, pool *pgxpool.Pool, authSvc *auth.Service) {
-	h := &Handler{queries: db.New(pool)}
+	h := &Handler{defaultQueries: db.New(pool)}
 
 	r.Route("/api/medical-records", func(r chi.Router) {
 		r.Use(auth.Middleware(authSvc))
@@ -53,20 +62,20 @@ type recordRequest struct {
 }
 
 type recordResponse struct {
-	ID              int64    `json:"id"`
-	AppointmentID   *int64   `json:"appointmentId,omitempty"`
-	PatientID       int64    `json:"patientId"`
-	Diagnosis       string   `json:"diagnosis"`
-	Treatment       string   `json:"treatment"`
-	Notes           string   `json:"notes"`
-	Symptoms        string   `json:"symptoms"`
-	Weight          float64  `json:"weight"`
-	Temperature     float64  `json:"temperature"`
-	AppointmentType string   `json:"appointmentType,omitempty"`
-	VisitDate       string   `json:"visitDate,omitempty"`
-	PatientName     string   `json:"patientName,omitempty"`
-	CreatedAt       string   `json:"createdAt"`
-	UpdatedAt       string   `json:"updatedAt"`
+	ID              int64   `json:"id"`
+	AppointmentID   *int64  `json:"appointmentId,omitempty"`
+	PatientID       int64   `json:"patientId"`
+	Diagnosis       string  `json:"diagnosis"`
+	Treatment       string  `json:"treatment"`
+	Notes           string  `json:"notes"`
+	Symptoms        string  `json:"symptoms"`
+	Weight          float64 `json:"weight"`
+	Temperature     float64 `json:"temperature"`
+	AppointmentType string  `json:"appointmentType,omitempty"`
+	VisitDate       string  `json:"visitDate,omitempty"`
+	PatientName     string  `json:"patientName,omitempty"`
+	CreatedAt       string  `json:"createdAt"`
+	UpdatedAt       string  `json:"updatedAt"`
 }
 
 // --- Handlers ---
@@ -88,7 +97,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rec, err := h.queries.CreateMedicalRecord(r.Context(), db.CreateMedicalRecordParams{
+	rec, err := h.getQueries(r).CreateMedicalRecord(r.Context(), db.CreateMedicalRecordParams{
 		AppointmentID: pgInt8Ptr(req.AppointmentID),
 		PatientID:     req.PatientID,
 		Diagnosis:     helpers.PgText(req.Diagnosis),
@@ -116,7 +125,7 @@ func (h *Handler) GetByAppointment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rec, err := h.queries.GetMedicalRecordByAppointment(r.Context(), pgtype.Int8{Int64: appointmentID, Valid: true})
+	rec, err := h.getQueries(r).GetMedicalRecordByAppointment(r.Context(), pgtype.Int8{Int64: appointmentID, Valid: true})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			middleware.RespondJSON(w, http.StatusNotFound, middleware.ErrorResponse{
@@ -140,7 +149,7 @@ func (h *Handler) ListByPatient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	records, err := h.queries.ListMedicalRecordsByPatient(r.Context(), patientID)
+	records, err := h.getQueries(r).ListMedicalRecordsByPatient(r.Context(), patientID)
 	if err != nil {
 		log.Printf("ERROR: list medical records by patient: %v", err)
 		middleware.RespondError(w, err)
@@ -163,7 +172,7 @@ func (h *Handler) ListByClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	records, err := h.queries.ListMedicalRecordsByClient(r.Context(), clientID)
+	records, err := h.getQueries(r).ListMedicalRecordsByClient(r.Context(), clientID)
 	if err != nil {
 		log.Printf("ERROR: list medical records by client: %v", err)
 		middleware.RespondError(w, err)
@@ -194,7 +203,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rec, err := h.queries.UpdateMedicalRecord(r.Context(), db.UpdateMedicalRecordParams{
+	rec, err := h.getQueries(r).UpdateMedicalRecord(r.Context(), db.UpdateMedicalRecordParams{
 		ID:          id,
 		Diagnosis:   helpers.PgText(req.Diagnosis),
 		Treatment:   helpers.PgText(req.Treatment),

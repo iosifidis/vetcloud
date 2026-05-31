@@ -127,4 +127,3 @@ func Int8Ptr(n pgtype.Int8) *int64 {
 	}
 	return &n.Int64
 }
-

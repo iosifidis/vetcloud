@@ -21,17 +21,26 @@ import (
 
 // Handler handles authentication HTTP requests.
 type Handler struct {
-	queries *db.Queries
-	auth    *Service
-	cfg     *config.Config
+	defaultQueries *db.Queries
+	auth           *Service
+	cfg            *config.Config
+}
+
+// getQueries returns the database queries for the current tenant.
+func (h *Handler) getQueries(r *http.Request) *db.Queries {
+	pool := middleware.TenantPoolFromContext(r.Context())
+	if pool != nil {
+		return db.New(pool)
+	}
+	return h.defaultQueries
 }
 
 // RegisterRoutes mounts auth routes on the given router.
 func RegisterRoutes(r chi.Router, cfg *config.Config, pool *pgxpool.Pool) {
 	h := &Handler{
-		queries: db.New(pool),
-		auth:    NewService(cfg),
-		cfg:     cfg,
+		defaultQueries: db.New(pool),
+		auth:           NewService(cfg),
+		cfg:            cfg,
 	}
 
 	r.Route("/api/auth", func(r chi.Router) {
@@ -93,7 +102,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Find user
-	user, err := h.queries.GetUserByUsername(r.Context(), req.Username)
+	user, err := h.getQueries(r).GetUserByUsername(r.Context(), req.Username)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			middleware.RespondJSON(w, http.StatusUnauthorized, middleware.ErrorResponse{
@@ -117,7 +126,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate tokens
-	accessToken, refreshToken, err := h.generateTokenPair(r, user.ID, user.Username, user.RoleName)
+	slug := middleware.TenantSlugFromContext(r.Context())
+	accessToken, refreshToken, err := h.generateTokenPair(r, user.ID, user.Username, user.RoleName, slug)
 	if err != nil {
 		log.Printf("ERROR: generate tokens: %v", err)
 		middleware.RespondJSON(w, http.StatusInternalServerError, middleware.ErrorResponse{
@@ -169,7 +179,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get default role (VET)
-	role, err := h.queries.GetRoleByName(r.Context(), "VET")
+	role, err := h.getQueries(r).GetRoleByName(r.Context(), "VET")
 	if err != nil {
 		log.Printf("ERROR: get role: %v", err)
 		middleware.RespondJSON(w, http.StatusInternalServerError, middleware.ErrorResponse{
@@ -179,7 +189,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create user
-	user, err := h.queries.CreateUser(r.Context(), db.CreateUserParams{
+	user, err := h.getQueries(r).CreateUser(r.Context(), db.CreateUserParams{
 		Username:     req.Username,
 		PasswordHash: hash,
 		Email:        pgtype.Text{String: req.Email, Valid: true},
@@ -250,17 +260,17 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	// Since bcrypt produces different hashes each time, we can't look up by hash.
 	// Let's revoke all and create new. For a proper implementation, store a SHA256
 	// lookup hash. For now, we'll decode the userID from the token itself.
-	// 
+	//
 	// Simplified approach: The refresh token contains the userID as prefix.
 	// Better approach for production: use a unique token ID stored alongside.
 	//
 	// For this MVP, we'll trust the token and just issue new tokens.
 	// The proper fix is to change the DB schema to store a token_id for lookup.
-	// 
+	//
 	// INTERIM SOLUTION: We pass user info in the refresh request body.
 
 	// Look up by raw token stored in DB
-	storedToken, err := h.queries.GetRefreshToken(r.Context(), req.RefreshToken)
+	storedToken, err := h.getQueries(r).GetRefreshToken(r.Context(), req.RefreshToken)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			middleware.RespondJSON(w, http.StatusUnauthorized, middleware.ErrorResponse{
@@ -276,10 +286,10 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Revoke old token (rotation)
-	_ = h.queries.RevokeRefreshToken(r.Context(), req.RefreshToken)
+	_ = h.getQueries(r).RevokeRefreshToken(r.Context(), req.RefreshToken)
 
 	// Look up user
-	user, err := h.queries.GetUserByID(r.Context(), storedToken.UserID)
+	user, err := h.getQueries(r).GetUserByID(r.Context(), storedToken.UserID)
 	if err != nil {
 		log.Printf("ERROR: get user for refresh: %v", err)
 		middleware.RespondJSON(w, http.StatusUnauthorized, middleware.ErrorResponse{
@@ -289,7 +299,8 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate new token pair
-	accessToken, newRefreshToken, err := h.generateTokenPair(r, user.ID, user.Username, user.RoleName)
+	slug := middleware.TenantSlugFromContext(r.Context())
+	accessToken, newRefreshToken, err := h.generateTokenPair(r, user.ID, user.Username, user.RoleName, slug)
 	if err != nil {
 		log.Printf("ERROR: generate new tokens: %v", err)
 		middleware.RespondJSON(w, http.StatusInternalServerError, middleware.ErrorResponse{
@@ -325,7 +336,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.queries.RevokeAllUserRefreshTokens(r.Context(), user.UserID); err != nil {
+	if err := h.getQueries(r).RevokeAllUserRefreshTokens(r.Context(), user.UserID); err != nil {
 		log.Printf("ERROR: revoke tokens: %v", err)
 	}
 
@@ -335,9 +346,9 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 // --- Helpers ---
 
 // generateTokenPair creates an access token and a persisted refresh token.
-func (h *Handler) generateTokenPair(r *http.Request, userID int64, username, role string) (string, string, error) {
+func (h *Handler) generateTokenPair(r *http.Request, userID int64, username, role, tenantSlug string) (string, string, error) {
 	// Generate access token
-	accessToken, err := h.auth.GenerateAccessToken(userID, username, role)
+	accessToken, err := h.auth.GenerateAccessToken(userID, username, role, tenantSlug)
 	if err != nil {
 		return "", "", err
 	}
@@ -349,7 +360,7 @@ func (h *Handler) generateTokenPair(r *http.Request, userID int64, username, rol
 	}
 
 	// Store refresh token in DB (store raw token for lookup)
-	_, err = h.queries.CreateRefreshToken(r.Context(), db.CreateRefreshTokenParams{
+	_, err = h.getQueries(r).CreateRefreshToken(r.Context(), db.CreateRefreshTokenParams{
 		UserID:    userID,
 		TokenHash: refreshToken, // Store raw for direct lookup
 		ExpiresAt: pgtype.Timestamptz{

@@ -44,7 +44,7 @@ func (h *Handler) ListAlerts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	alerts, err := h.queries.ListAlertsByPatient(r.Context(), patientID)
+	alerts, err := h.getQueries(r).ListAlertsByPatient(r.Context(), patientID)
 	if err != nil {
 		log.Printf("ERROR: list alerts for patient %d: %v", patientID, err)
 		middleware.RespondError(w, err)
@@ -93,7 +93,7 @@ func (h *Handler) CreateAlert(w http.ResponseWriter, r *http.Request) {
 		isActive = *req.IsActive
 	}
 
-	alert, err := h.queries.CreateAlert(r.Context(), db.CreateAlertParams{
+	alert, err := h.getQueries(r).CreateAlert(r.Context(), db.CreateAlertParams{
 		PatientID:   patientID,
 		AlertType:   req.AlertType,
 		Description: req.Description,
@@ -132,7 +132,7 @@ func (h *Handler) UpdateAlert(w http.ResponseWriter, r *http.Request) {
 		isActive = *req.IsActive
 	}
 
-	alert, err := h.queries.UpdateAlert(r.Context(), db.UpdateAlertParams{
+	alert, err := h.getQueries(r).UpdateAlert(r.Context(), db.UpdateAlertParams{
 		ID:          alertID,
 		AlertType:   req.AlertType,
 		Description: req.Description,
@@ -164,7 +164,7 @@ func (h *Handler) DeleteAlert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.queries.DeleteAlert(r.Context(), alertID); err != nil {
+	if err := h.getQueries(r).DeleteAlert(r.Context(), alertID); err != nil {
 		log.Printf("ERROR: delete alert %d: %v", alertID, err)
 		middleware.RespondError(w, err)
 		return

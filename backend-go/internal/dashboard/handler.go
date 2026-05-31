@@ -15,12 +15,21 @@ import (
 
 // Handler handles dashboard HTTP requests.
 type Handler struct {
-	queries *db.Queries
+	defaultQueries *db.Queries
+}
+
+// getQueries returns the database queries for the current tenant.
+func (h *Handler) getQueries(r *http.Request) *db.Queries {
+	pool := middleware.TenantPoolFromContext(r.Context())
+	if pool != nil {
+		return db.New(pool)
+	}
+	return h.defaultQueries
 }
 
 // RegisterRoutes mounts dashboard routes.
 func RegisterRoutes(r chi.Router, cfg *config.Config, pool *pgxpool.Pool, authSvc *auth.Service) {
-	h := &Handler{queries: db.New(pool)}
+	h := &Handler{defaultQueries: db.New(pool)}
 
 	r.Route("/api/dashboard", func(r chi.Router) {
 		r.Use(auth.Middleware(authSvc))
@@ -40,7 +49,7 @@ type statsResponse struct {
 
 // GetStats returns aggregated dashboard statistics.
 func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
-	stats, err := h.queries.GetDashboardStats(r.Context())
+	stats, err := h.getQueries(r).GetDashboardStats(r.Context())
 	if err != nil {
 		log.Printf("ERROR: get dashboard stats: %v", err)
 		middleware.RespondError(w, err)

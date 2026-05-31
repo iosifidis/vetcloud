@@ -22,6 +22,9 @@ type Config struct {
 	// Single tenant mode (no catalog DB)
 	SingleTenant bool
 
+	// API Key for super-admin actions (like creating tenants)
+	SuperAdminKey string
+
 	// JWT
 	JWTSecret            string
 	AccessTokenDuration  time.Duration
@@ -42,6 +45,7 @@ func Load() (*Config, error) {
 		DatabaseURL:          getEnv("DATABASE_URL", "postgres://admin:password123@localhost:5432/pims_db?sslmode=disable"),
 		CatalogDatabaseURL:   getEnv("CATALOG_DATABASE_URL", ""),
 		SingleTenant:         getEnvBool("SINGLE_TENANT", true),
+		SuperAdminKey:        getEnv("SUPER_ADMIN_KEY", "super-secret-dev-key"),
 		JWTSecret:            getEnv("JWT_SECRET", ""),
 		AccessTokenDuration:  getEnvDuration("ACCESS_TOKEN_DURATION", 15*time.Minute),
 		RefreshTokenDuration: getEnvDuration("REFRESH_TOKEN_DURATION", 7*24*time.Hour),

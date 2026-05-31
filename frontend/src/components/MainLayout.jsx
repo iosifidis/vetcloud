@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useTenant } from "../context/TenantContext";
 
 const MainLayout = ({ children }) => {
   const { user, logout } = useAuth();
+  const { settings, isModuleEnabled } = useTenant();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
 
@@ -16,7 +18,10 @@ const MainLayout = ({ children }) => {
     <div className="flex min-h-screen bg-gray-100">
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 w-full bg-gray-900 text-white z-20 flex items-center justify-between p-4 shadow-md">
-        <h1 className="text-xl font-bold text-blue-500">PIMS</h1>
+        <div className="flex items-center gap-2">
+            {settings?.logoUrl && <img src={settings.logoUrl} alt="Logo" className="h-6 w-auto" />}
+            <h1 className="text-xl font-bold text-[var(--color-primary)]">{settings?.clinicName || "VetCloud"}</h1>
+        </div>
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           className="text-white p-2 focus:outline-none"
@@ -48,8 +53,11 @@ const MainLayout = ({ children }) => {
         md:translate-x-0 pt-16 md:pt-0
       `}>
         <div className="p-6 border-b border-gray-800 hidden md:block">
-          <h1 className="text-2xl font-bold text-blue-500">PIMS</h1>
-          <p className="text-xs text-gray-400 mt-1">Veterinary Management</p>
+          <div className="flex items-center gap-2 mb-2">
+              {settings?.logoUrl && <img src={settings.logoUrl} alt="Logo" className="h-8 w-auto" />}
+              <h1 className="text-2xl font-bold text-[var(--color-primary)] break-all">{settings?.clinicName || "VetCloud"}</h1>
+          </div>
+          <p className="text-xs text-gray-400">Veterinary Management</p>
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
@@ -58,7 +66,7 @@ const MainLayout = ({ children }) => {
             onClick={handleMobileNavClick}
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                ? "bg-blue-600 text-white shadow-lg"
+                ? "bg-[var(--color-primary)] text-white shadow-lg"
                 : "text-gray-400 hover:bg-gray-800 hover:text-white"
               }`
             }
@@ -67,12 +75,13 @@ const MainLayout = ({ children }) => {
             <span className="font-medium">Dashboard</span>
           </NavLink>
 
+          {isModuleEnabled('appointments') && (
           <NavLink
             to="/appointments"
             onClick={handleMobileNavClick}
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                ? "bg-blue-600 text-white shadow-lg"
+                ? "bg-[var(--color-primary)] text-white shadow-lg"
                 : "text-gray-400 hover:bg-gray-800 hover:text-white"
               }`
             }
@@ -80,13 +89,15 @@ const MainLayout = ({ children }) => {
             <span className="text-xl">📅</span>
             <span className="font-medium">Appointments</span>
           </NavLink>
+          )}
 
+          {isModuleEnabled('clients') && (
           <NavLink
             to="/clients"
             onClick={handleMobileNavClick}
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                ? "bg-blue-600 text-white shadow-lg"
+                ? "bg-[var(--color-primary)] text-white shadow-lg"
                 : "text-gray-400 hover:bg-gray-800 hover:text-white"
               }`
             }
@@ -94,13 +105,15 @@ const MainLayout = ({ children }) => {
             <span className="text-xl">👥</span>
             <span className="font-medium">Clients</span>
           </NavLink>
+          )}
 
+          {isModuleEnabled('patients') && (
           <NavLink
             to="/patients"
             onClick={handleMobileNavClick}
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                ? "bg-blue-600 text-white shadow-lg"
+                ? "bg-[var(--color-primary)] text-white shadow-lg"
                 : "text-gray-400 hover:bg-gray-800 hover:text-white"
               }`
             }
@@ -108,21 +121,39 @@ const MainLayout = ({ children }) => {
             <span className="text-xl">🐾</span>
             <span className="font-medium">Patients</span>
           </NavLink>
+          )}
 
           {/* Admin Only - Users */}
-          {(user?.role === 'ADMIN' || user?.role === 'ROLE_ADMIN') && (
+          {(user?.role === 'ADMIN' || user?.role === 'ROLE_ADMIN') && isModuleEnabled('users') && (
             <NavLink
               to="/users"
               onClick={handleMobileNavClick}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                  ? "bg-blue-600 text-white shadow-lg"
+                  ? "bg-[var(--color-primary)] text-white shadow-lg"
                   : "text-gray-400 hover:bg-gray-800 hover:text-white"
                 }`
               }
             >
               <span className="text-xl">🛡️</span>
               <span className="font-medium">Users</span>
+            </NavLink>
+          )}
+          
+          {/* Admin Only - Tenant Settings */}
+          {(user?.role === 'ADMIN' || user?.role === 'ROLE_ADMIN') && (
+            <NavLink
+              to="/settings/tenant"
+              onClick={handleMobileNavClick}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                  ? "bg-[var(--color-primary)] text-white shadow-lg"
+                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                }`
+              }
+            >
+              <span className="text-xl">⚙️</span>
+              <span className="font-medium">Settings</span>
             </NavLink>
           )}
         </nav>
@@ -133,7 +164,7 @@ const MainLayout = ({ children }) => {
             onClick={handleMobileNavClick}
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                ? "bg-blue-600 text-white shadow-lg"
+                ? "bg-[var(--color-primary)] text-white shadow-lg"
                 : "text-gray-400 hover:bg-gray-800 hover:text-white"
               }`
             }

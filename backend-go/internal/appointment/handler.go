@@ -22,12 +22,21 @@ import (
 
 // Handler handles appointment HTTP requests.
 type Handler struct {
-	queries *db.Queries
+	defaultQueries *db.Queries
+}
+
+// getQueries returns the database queries for the current tenant.
+func (h *Handler) getQueries(r *http.Request) *db.Queries {
+	pool := middleware.TenantPoolFromContext(r.Context())
+	if pool != nil {
+		return db.New(pool)
+	}
+	return h.defaultQueries
 }
 
 // RegisterRoutes mounts appointment routes.
 func RegisterRoutes(r chi.Router, cfg *config.Config, pool *pgxpool.Pool, authSvc *auth.Service) {
-	h := &Handler{queries: db.New(pool)}
+	h := &Handler{defaultQueries: db.New(pool)}
 
 	r.Route("/api/appointments", func(r chi.Router) {
 		r.Use(auth.Middleware(authSvc))
@@ -85,7 +94,7 @@ type appointmentResponse struct {
 
 // List returns all appointments with related data.
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	appointments, err := h.queries.ListAppointments(r.Context())
+	appointments, err := h.getQueries(r).ListAppointments(r.Context())
 	if err != nil {
 		log.Printf("ERROR: list appointments: %v", err)
 		middleware.RespondError(w, err)
@@ -108,7 +117,7 @@ func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	appointments, err := h.queries.SearchAppointments(r.Context(), helpers.PgText(q))
+	appointments, err := h.getQueries(r).SearchAppointments(r.Context(), helpers.PgText(q))
 	if err != nil {
 		log.Printf("ERROR: search appointments: %v", err)
 		middleware.RespondError(w, err)
@@ -131,7 +140,7 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a, err := h.queries.GetAppointmentByID(r.Context(), id)
+	a, err := h.getQueries(r).GetAppointmentByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			middleware.RespondJSON(w, http.StatusNotFound, middleware.ErrorResponse{
@@ -155,7 +164,7 @@ func (h *Handler) GetNext(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a, err := h.queries.GetNextAppointmentForVet(r.Context(), pgtype.Int8{Int64: user.UserID, Valid: true})
+	a, err := h.getQueries(r).GetNextAppointmentForVet(r.Context(), pgtype.Int8{Int64: user.UserID, Valid: true})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			middleware.RespondJSON(w, http.StatusOK, nil)
@@ -191,7 +200,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		req.Type = "EXAM"
 	}
 
-	a, err := h.queries.CreateAppointment(r.Context(), db.CreateAppointmentParams{
+	a, err := h.getQueries(r).CreateAppointment(r.Context(), db.CreateAppointmentParams{
 		ClientID:   req.ClientID,
 		PatientID:  req.PatientID,
 		VetID:      pgInt8Ptr(req.VetID),
@@ -229,7 +238,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a, err := h.queries.UpdateAppointment(r.Context(), db.UpdateAppointmentParams{
+	a, err := h.getQueries(r).UpdateAppointment(r.Context(), db.UpdateAppointmentParams{
 		ID:         id,
 		ClientID:   req.ClientID,
 		PatientID:  req.PatientID,
@@ -265,7 +274,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	if err := h.queries.DeleteAppointment(r.Context(), id); err != nil {
+	if err := h.getQueries(r).DeleteAppointment(r.Context(), id); err != nil {
 		log.Printf("ERROR: delete appointment: %v", err)
 		middleware.RespondError(w, err)
 		return

@@ -20,12 +20,21 @@ import (
 
 // Handler handles patient HTTP requests.
 type Handler struct {
-	queries *db.Queries
+	defaultQueries *db.Queries
+}
+
+// getQueries returns the database queries for the current tenant.
+func (h *Handler) getQueries(r *http.Request) *db.Queries {
+	pool := middleware.TenantPoolFromContext(r.Context())
+	if pool != nil {
+		return db.New(pool)
+	}
+	return h.defaultQueries
 }
 
 // RegisterRoutes mounts patient routes.
 func RegisterRoutes(r chi.Router, cfg *config.Config, pool *pgxpool.Pool, authSvc *auth.Service) {
-	h := &Handler{queries: db.New(pool)}
+	h := &Handler{defaultQueries: db.New(pool)}
 
 	r.Route("/api/patients", func(r chi.Router) {
 		r.Use(auth.Middleware(authSvc))
@@ -87,7 +96,7 @@ type patientRequest struct {
 
 // ListAll returns all patients with owner info.
 func (h *Handler) ListAll(w http.ResponseWriter, r *http.Request) {
-	patients, err := h.queries.ListAllPatients(r.Context())
+	patients, err := h.getQueries(r).ListAllPatients(r.Context())
 	if err != nil {
 		log.Printf("ERROR: list patients: %v", err)
 		middleware.RespondError(w, err)
@@ -110,7 +119,7 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := h.queries.GetPatientByID(r.Context(), id)
+	p, err := h.getQueries(r).GetPatientByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			middleware.RespondJSON(w, http.StatusNotFound, middleware.ErrorResponse{
@@ -134,7 +143,7 @@ func (h *Handler) ListByOwner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	patients, err := h.queries.ListPatientsByOwner(r.Context(), ownerID)
+	patients, err := h.getQueries(r).ListPatientsByOwner(r.Context(), ownerID)
 	if err != nil {
 		log.Printf("ERROR: list patients by owner: %v", err)
 		middleware.RespondError(w, err)
@@ -165,7 +174,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := h.queries.UpdatePatient(r.Context(), db.UpdatePatientParams{
+	p, err := h.getQueries(r).UpdatePatient(r.Context(), db.UpdatePatientParams{
 		ID:                id,
 		Name:              req.Name,
 		Species:           req.Species,
@@ -202,7 +211,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	if err := h.queries.DeletePatient(r.Context(), id); err != nil {
+	if err := h.getQueries(r).DeletePatient(r.Context(), id); err != nil {
 		log.Printf("ERROR: delete patient: %v", err)
 		middleware.RespondError(w, err)
 		return
@@ -219,7 +228,7 @@ func (h *Handler) MarkDeceased(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	p, err := h.queries.MarkPatientDeceased(r.Context(), id)
+	p, err := h.getQueries(r).MarkPatientDeceased(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			middleware.RespondJSON(w, http.StatusNotFound, middleware.ErrorResponse{
@@ -250,7 +259,7 @@ func (h *Handler) Transfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := h.queries.TransferPatient(r.Context(), db.TransferPatientParams{
+	p, err := h.getQueries(r).TransferPatient(r.Context(), db.TransferPatientParams{
 		ID:       patientID,
 		ClientID: ownerID,
 	})

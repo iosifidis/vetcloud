@@ -11,6 +11,14 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
+  const parseJwt = (token) => {
+    try {
+      return JSON.parse(atob(token.split('.')[1]));
+    } catch (e) {
+      return null;
+    }
+  };
+
   // Lazy Init: Read from localStorage on initialization
   const [user, setUser] = useState(() => {
     try {
@@ -81,6 +89,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     token,
+    tenantSlug: token ? parseJwt(token)?.tenant_slug : null,
     isAuthenticated: !!token,
     loading,
     login,

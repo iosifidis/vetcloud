@@ -15,12 +15,14 @@ import (
 
 	"github.com/iosifidis/vetcloud/internal/appointment"
 	"github.com/iosifidis/vetcloud/internal/auth"
+	"github.com/iosifidis/vetcloud/internal/catalog"
 	"github.com/iosifidis/vetcloud/internal/client"
 	"github.com/iosifidis/vetcloud/internal/config"
 	"github.com/iosifidis/vetcloud/internal/dashboard"
 	"github.com/iosifidis/vetcloud/internal/medicalrecord"
 	"github.com/iosifidis/vetcloud/internal/middleware"
 	"github.com/iosifidis/vetcloud/internal/patient"
+	"github.com/iosifidis/vetcloud/internal/tenant"
 	"github.com/iosifidis/vetcloud/internal/user"
 )
 
@@ -45,7 +47,30 @@ func main() {
 	if err := pool.Ping(ctx); err != nil {
 		log.Fatalf("failed to ping database: %v", err)
 	}
-	log.Println("Connected to database")
+	log.Println("Connected to default database")
+
+	// Initialize Catalog DB (if multi-tenant)
+	var catalogQueries *catalog.Queries
+	if !cfg.SingleTenant {
+		catalogPool, err := pgxpool.New(ctx, cfg.CatalogDatabaseURL)
+		if err != nil {
+			log.Fatalf("failed to connect to catalog database: %v", err)
+		}
+		defer catalogPool.Close()
+		
+		if err := catalogPool.Ping(ctx); err != nil {
+			log.Fatalf("failed to ping catalog database: %v", err)
+		}
+		log.Println("Connected to catalog database")
+		catalogQueries = catalog.New(catalogPool)
+	}
+
+	// Initialize Tenant Manager
+	tenantManager := tenant.NewManager(catalogQueries, pool, cfg.SingleTenant)
+	if err := tenantManager.LoadAll(ctx); err != nil {
+		log.Printf("warning: failed to preload all tenants: %v", err)
+	}
+	defer tenantManager.Close()
 
 	// Setup router
 	r := chi.NewRouter()
@@ -54,6 +79,9 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Logger)
 	r.Use(middleware.CORS(cfg.AllowedOrigins))
+
+	// Tenant middleware: injects tenant DB pool into request context
+	r.Use(tenant.Middleware(tenantManager))
 
 	// Health check
 	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
@@ -88,6 +116,12 @@ func main() {
 	medicalrecord.RegisterRoutes(r, cfg, pool, authSvc)
 	dashboard.RegisterRoutes(r, cfg, pool, authSvc)
 	user.RegisterRoutes(r, cfg, pool, authSvc)
+
+	// Register tenant management handlers
+	if !cfg.SingleTenant {
+		tenant.RegisterSuperRoutes(r, catalogQueries, cfg)
+		tenant.RegisterSettingsRoutes(r, catalogQueries, authSvc)
+	}
 
 	// Create HTTP server
 	srv := &http.Server{

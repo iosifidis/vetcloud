@@ -16,9 +16,10 @@ import (
 
 // Claims represents the JWT claims for access tokens.
 type Claims struct {
-	UserID   int64  `json:"user_id"`
-	Username string `json:"username"`
-	Role     string `json:"role"`
+	UserID     int64  `json:"user_id"`
+	Username   string `json:"username"`
+	Role       string `json:"role"`
+	TenantSlug string `json:"tenant_slug"`
 	jwt.RegisteredClaims
 }
 
@@ -60,12 +61,13 @@ func (s *Service) CheckPassword(hash, password string) error {
 // --- JWT Access Tokens ---
 
 // GenerateAccessToken creates a signed JWT access token.
-func (s *Service) GenerateAccessToken(userID int64, username, role string) (string, error) {
+func (s *Service) GenerateAccessToken(userID int64, username, role, tenantSlug string) (string, error) {
 	now := time.Now()
 	claims := Claims{
-		UserID:   userID,
-		Username: username,
-		Role:     role,
+		UserID:     userID,
+		Username:   username,
+		Role:       role,
+		TenantSlug: tenantSlug,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(s.cfg.AccessTokenDuration)),

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTenant } from '../context/TenantContext';
 import { authAPI } from '../api';
 
 const LoginPage = () => {
@@ -8,6 +9,7 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { login } = useAuth();
+  const { settings, loading } = useTenant();
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
@@ -34,10 +36,20 @@ const LoginPage = () => {
     }
   };
 
+  if (loading) {
+      return <div className="min-h-screen flex items-center justify-center bg-gray-100">Loading...</div>;
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">Login</h2>
+        <div className="flex flex-col items-center mb-6">
+            {settings?.logoUrl && <img src={settings.logoUrl} alt="Logo" className="h-16 w-auto mb-2" />}
+            <h2 className="text-2xl font-bold text-center text-[var(--color-primary)]">
+                {settings?.clinicName || "VetCloud"}
+            </h2>
+            <p className="text-gray-500 text-sm">Login to your account</p>
+        </div>
 
         {/* UI: Render visible red error alert */}
         {error && (
@@ -75,7 +87,7 @@ const LoginPage = () => {
           </div>
           <div className="flex items-center justify-between">
             <button
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full"
+              className="bg-[var(--color-primary)] hover:opacity-90 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full"
               type="submit"
             >
               Sign In
@@ -84,7 +96,7 @@ const LoginPage = () => {
         </form>
         <div className="mt-4 text-center">
           <p className="text-sm text-gray-600">
-            Don't have an account? <Link to="/register" className="text-blue-500 hover:text-blue-700">Register</Link>
+            Don't have an account? <Link to="/register" className="text-[var(--color-primary)] hover:underline">Register</Link>
           </p>
         </div>
       </div>
