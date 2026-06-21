@@ -1,8 +1,17 @@
+# =============================================================================
 # VetCloud Docker Compose — Development
-# Usage: docker compose up -d
+# =============================================================================
+# Usage:
+#   docker compose up -d                    # Single-tenant mode (default)
+#   SINGLE_TENANT=false docker compose up   # Multi-tenant mode
+#
+# Για multi-tenant: βεβαιώσου ότι έχεις CATALOG_DATABASE_URL στο .env
 
 services:
-  # PostgreSQL Database
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — Tenant Database (default / single-tenant)
+  # ---------------------------------------------------------------------------
   db:
     image: postgres:16-alpine
     container_name: vetcloud-db
@@ -15,13 +24,45 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d  # optional: init scripts
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U admin -d pims_db"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - internal
 
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — Catalog Database (multi-tenant mode)
+  # ---------------------------------------------------------------------------
+  # Για dev, τρέχουμε catalog DB σε ξεχωριστό container.
+  # Σε production μπορεί να είναι ξεχωριστή database στον ίδιο postgres server.
+  catalog-db:
+    image: postgres:16-alpine
+    container_name: vetcloud-catalog-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vetcloud_catalog
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+    ports:
+      - "5433:5432"
+    volumes:
+      - catalog_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d vetcloud_catalog"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+    profiles:
+      - multi-tenant  # εκκινεί μόνο με: docker compose --profile multi-tenant up
+
+  # ---------------------------------------------------------------------------
   # Go Backend API
+  # ---------------------------------------------------------------------------
   backend:
     build:
       context: ./backend-go
@@ -31,17 +72,22 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgres://admin:password123@db:5432/pims_db?sslmode=disable
-      JWT_SECRET: change-this-in-production-please-use-a-long-random-string
+      CATALOG_DATABASE_URL: postgres://admin:password123@catalog-db:5432/vetcloud_catalog?sslmode=disable
       SERVER_PORT: "8080"
-      CORS_ORIGIN: http://localhost:5173
-      SINGLE_TENANT: "true"
       ENVIRONMENT: development
     ports:
       - "8080:8080"
+    networks:
+      - internal
+      - caddy_network  # join Caddy network για reverse proxy
 
+  # ---------------------------------------------------------------------------
   # React Frontend (dev server)
+  # ---------------------------------------------------------------------------
   frontend:
     build:
       context: ./frontend
@@ -54,10 +100,15 @@ services:
       - "5173:5173"
     environment:
       VITE_API_URL: http://localhost:8080
+    networks:
+      - internal
+      - caddy_network
 
-  # Caddy Reverse Proxy
+  # ---------------------------------------------------------------------------
+  # Caddy Reverse Proxy (dev — χωρίς SSL)
+  # ---------------------------------------------------------------------------
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2-alpine  # dev: standard image (no SSL plugin needed)
     container_name: vetcloud-caddy
     restart: unless-stopped
     depends_on:
@@ -67,11 +118,21 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+    networks:
+      - caddy_network
+
+networks:
+  internal:
+    driver: bridge
+  caddy_network:
+    name: caddy_network
+    driver: bridge
 
 volumes:
   pgdata:
+  catalog_pgdata:
   caddy_data:
   caddy_config:

@@ -1,131 +1,241 @@
-# MSc PIMS - Practice Information Management System
+# VetCloud — Veterinary Practice Management System
 
-This project is a full-stack web application designed for managing patient information, likely within a veterinary or medical context. It is composed of a decoupled architecture with a Spring Boot backend, a React-based frontend, and a PostgreSQL database.
+Σύστημα διαχείρισης κτηνιατρικής κλινικής με υποστήριξη **multi-tenancy** (πολλές κλινικές στην ίδια εγκατάσταση).
 
-## 📂 Project Structure
+---
 
-The codebase is organized into three main directories:
+## 📂 Δομή Project
 
-*   **`backend`**: A Spring Boot application (Java 21) that serves as the REST API, handling business logic, data persistence, and security.
-*   **`frontend`**: A React application (powered by Vite) that provides the user interface.
-*   **`database`**: Contains Docker configurations to easily spin up the required PostgreSQL database.
+```
+vetcloud/
+├── backend-go/          # Go REST API (Chi router, pgx, sqlc)
+│   ├── cmd/
+│   │   ├── server/      # Κύρια εφαρμογή
+│   │   └── vetcloud-admin/  # CLI για διαχείριση tenants
+│   ├── internal/
+│   │   ├── auth/        # JWT authentication
+│   │   ├── tenant/      # Multi-tenancy (manager, middleware, handlers)
+│   │   ├── catalog/     # Catalog DB queries (sqlc-generated)
+│   │   ├── client/      # Pet owners
+│   │   ├── patient/     # Animals + alerts
+│   │   ├── appointment/ # Scheduling
+│   │   ├── medicalrecord/
+│   │   ├── dashboard/
+│   │   └── user/
+│   └── db/
+│       ├── migrations/       # golang-migrate SQL files (per-tenant)
+│       └── catalog_queries/  # SQL queries για το catalog DB
+├── frontend/            # React 19 + Vite + Tailwind CSS
+│   └── src/
+│       ├── context/
+│       │   ├── AuthContext.jsx    # JWT + tenantSlug
+│       │   └── TenantContext.jsx  # Dynamic branding (colors, logo, modules)
+│       └── pages/
+│           └── TenantSettingsPage.jsx  # Admin theming UI
+├── docs/
+│   └── deployment.md    # Πλήρης οδηγός εγκατάστασης
+├── Caddyfile            # Dev reverse proxy
+├── Caddyfile.production # Production wildcard SSL (Cloudflare)
+├── Dockerfile.caddy     # Custom Caddy με cloudflare-dns plugin
+├── docker-compose.yml             # Development
+└── docker-compose.production.yml  # Production
+```
 
 ---
 
 ## 🛠️ Technology Stack
 
-### Backend
-*   **Framework**: [Spring Boot 3.4.1](https://spring.io/projects/spring-boot)
-*   **Language**: Java 21
-*   **Build Tool**: Maven (Wrapper included)
-*   **Database Interaction**: Spring Data JPA, Hibernate
-*   **Security**: Spring Security, JWT (JSON Web Tokens)
-*   **Testing**: JUnit, Mockito, Jacoco
-
-### Frontend
-*   **Framework**: [React 19](https://react.dev/)
-*   **Build Tool**: [Vite](https://vitejs.dev/)
-*   **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-*   **Routing**: React Router DOM
-*   **HTTP Client**: Axios
-*   **Calendar**: FullCalendar
-*   **Date Utils**: date-fns
-
-### Database
-*   **System**: PostgreSQL 16 (running via Docker)
+| Layer | Technology |
+|-------|-----------|
+| **Backend** | Go 1.22, Chi router, pgx v5, sqlc |
+| **Frontend** | React 19, Vite, Tailwind CSS, Axios |
+| **Database** | PostgreSQL 16 |
+| **Migrations** | golang-migrate |
+| **Reverse Proxy** | Caddy 2 |
+| **Containerization** | Docker + Docker Compose |
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Γρήγορη Εκκίνηση (Development)
 
-Follow these instructions to get the complete system up and running on your local machine.
+### Απαιτήσεις
+- [Docker](https://www.docker.com/) & Docker Compose
+- [Go 1.22+](https://go.dev/) (για local development)
+- [Node.js LTS](https://nodejs.org/) & npm
 
-### Prerequisites
-Ensure you have the following installed:
-*   [Java SDK 21](https://adoptium.net/)
-*   [Node.js](https://nodejs.org/) (LTS version recommended) & npm
-*   [Docker](https://www.docker.com/) & Docker Compose
+### 1. Clone & Setup
 
----
-
-### Step 1: Start the Database
-
-The project uses a containerized PostgreSQL database.
-
-1.  Navigate to the `database` directory:
-    ```bash
-    cd database
-    ```
-2.  Start the database container:
-    ```bash
-    docker-compose up -d
-    ```
-3.  Verify it's running:
-    ```bash
-    docker ps
-    ```
-    You should see a container named `pims_db` running on port `5432`.
-
-    > **Note**: The default credentials are configured in `docker-compose.yml` and `application.properties`:
-    > *   User: `admin`
-    > *   Password: `password123`
-    > *   Database: `pims_db`
-
----
-
-### Step 2: Run the Backend
-
-1.  Navigate to the `backend` directory:
-    ```bash
-    cd ../backend
-    ```
-2.  (Optional) Clean and build the project to ensure dependencies are downloaded:
-    ```bash
-    ./mvnw clean install
-    ```
-3.  Start the Spring Boot application:
-    ```bash
-    ./mvnw spring-boot:run
-    ```
-    
-    The backend server will start (by default on **http://localhost:8080**).
-    
-    > **⚠️ Important**: The current configuration uses `spring.jpa.hibernate.ddl-auto=create-drop`. This means **data is lost** every time you restart the backend application. Change this to `update` in `backend/src/main/resources/application.properties` to persist data.
-
----
-
-### Step 3: Run the Frontend
-
-1.  Open a new terminal and navigate to the `frontend` directory:
-    ```bash
-    cd frontend
-    ```
-2.  Install the JavaScript dependencies:
-    ```bash
-    npm install
-    ```
-3.  Start the development server:
-    ```bash
-    npm run dev
-    ```
-
-    The frontend will start (usually on **http://localhost:5173**). Open this URL in your browser to access the application.
-
----
-
-## 🧪 Running Tests
-
-### Backend Tests
-To run unit and integration tests for the backend:
 ```bash
-cd backend
-./mvnw test
-```
-Reports (e.g., Jacoco) will be generated in `backend/target/site/jacoco`.
+git clone https://github.com/iosifidis/vetcloud.git
+cd vetcloud
 
-### Frontend Linting
-To run linting for the frontend:
+# Αντίγραφο env vars
+cp .env.example .env
+# Επεξεργασία .env (αλλάζεις JWT_SECRET, κλπ)
+nano .env
+```
+
+### 2. Εκκίνηση (Single-Tenant mode)
+
+```bash
+docker compose up -d
+```
+
+Η εφαρμογή είναι διαθέσιμη στο **http://localhost**.
+
+### 3. Εκκίνηση (Multi-Tenant mode)
+
+```bash
+# Εκκινεί και το catalog DB
+docker compose --profile multi-tenant up -d
+```
+
+---
+
+## ⚙️ Multi-Tenancy
+
+Το VetCloud υποστηρίζει δύο modes λειτουργίας:
+
+| Mode | Χρήση | Env Var |
+|------|-------|---------|
+| **Single-Tenant** | Ένα ιατρείο, self-hosted | `SINGLE_TENANT=true` |
+| **Multi-Tenant** | SaaS — πολλά ιατρεία | `SINGLE_TENANT=false` |
+
+### Πώς λειτουργεί το routing
+
+```
+clinic-a.vetcloud.gr  →  Caddy  →  Go API
+                                  (Host header: clinic-a.vetcloud.gr)
+                                        ↓
+                                  Tenant Middleware
+                                  (slug: "clinic-a")
+                                        ↓
+                                  Catalog DB lookup
+                                        ↓
+                                  clinic_a_db (pgxpool)
+```
+
+### Δημιουργία νέου tenant (CLI)
+
+```bash
+docker compose exec backend ./vetcloud-admin tenant create \
+  --name "Κλινική Παπαδόπουλος" \
+  --slug clinic-a \
+  --db-url "postgres://admin:pass@db:5432/clinic_a_db?sslmode=disable" \
+  --email "admin@papvet.gr"
+
+# Έλεγχος
+docker compose exec backend ./vetcloud-admin tenant list
+```
+
+---
+
+## 🏗️ Backend Development
+
+```bash
+cd backend-go
+
+# Build
+go build ./...
+
+# Tests
+go test ./...
+
+# Τρέξιμο locally
+export DATABASE_URL="postgres://admin:password123@localhost:5432/pims_db?sslmode=disable"
+export JWT_SECRET="dev-secret-min-32-chars-long-here"
+export SINGLE_TENANT=true
+go run ./cmd/server
+```
+
+### sqlc (Database Query Generation)
+
+```bash
+cd backend-go
+sqlc generate
+```
+
+---
+
+## 🎨 Frontend Development
+
 ```bash
 cd frontend
+
+npm install
+npm run dev     # http://localhost:5173
+npm run build   # Production build
 npm run lint
 ```
+
+### Tenant Theming (TenantContext)
+
+Το frontend φορτώνει δυναμικά το branding κάθε tenant:
+- Χρώματα → CSS variables (`--color-primary`, `--color-secondary`)
+- Λογότυπο & Όνομα κλινικής → Login page + Sidebar
+- Enabled Modules → Conditional navigation links
+
+---
+
+## 🔐 Environment Variables
+
+Δες το [`.env.example`](./.env.example) για πλήρη τεκμηρίωση.
+
+Βασικές μεταβλητές:
+
+| Variable | Περιγραφή | Default |
+|----------|-----------|---------|
+| `DATABASE_URL` | Tenant DB connection string | - |
+| `CATALOG_DATABASE_URL` | Catalog DB (multi-tenant) | - |
+| `SINGLE_TENANT` | Single ή multi-tenant mode | `true` |
+| `JWT_SECRET` | JWT signing key (min 32 chars) | - |
+| `SUPER_ADMIN_KEY` | API key για super-admin endpoints | - |
+| `CLOUDFLARE_API_TOKEN` | Για wildcard SSL (production) | - |
+
+---
+
+## 🌐 Production Deployment
+
+Δες τον πλήρη οδηγό: **[docs/deployment.md](./docs/deployment.md)**
+
+### Γρήγορη επισκόπηση (Multi-Tenant / Okeanos)
+
+```bash
+# 1. Δημιουργία Caddy network (μια φορά)
+docker network create caddy_network
+
+# 2. Build custom Caddy (με Cloudflare DNS plugin)
+docker build -f Dockerfile.caddy -t vetcloud-caddy .
+
+# 3. Production .env
+cp .env.example .env.production
+nano .env.production  # SINGLE_TENANT=false, CLOUDFLARE_API_TOKEN=...
+
+# 4. Deploy
+docker compose -f docker-compose.production.yml up -d
+```
+
+**DNS στο Cloudflare:**
+| Type | Name | Content |
+|------|------|---------|
+| A | `@` | `<server IP>` |
+| CNAME | `*` | `vetcloud.gr` |
+
+---
+
+## 🧪 Tests
+
+```bash
+# Backend
+cd backend-go && go test ./...
+
+# Frontend lint
+cd frontend && npm run lint
+```
+
+---
+
+## 📖 Docs
+
+- [`docs/deployment.md`](./docs/deployment.md) — Πλήρης οδηγός εγκατάστασης
+- [`.env.example`](./.env.example) — Όλα τα environment variables

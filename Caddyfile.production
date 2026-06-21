@@ -1,0 +1,59 @@
+# =============================================================================
+# VetCloud — Caddyfile (Production)
+# =============================================================================
+# Απαιτεί: Caddy με caddy-dns/cloudflare plugin (βλέπε Dockerfile.caddy)
+# Απαιτεί: CLOUDFLARE_API_TOKEN env var
+#
+# Αντέγραψε αυτό ως /etc/caddy/Caddyfile στο production container
+# ή mount στο docker-compose.production.yml
+
+# =============================================================================
+# Wildcard subdomain + apex domain — ένα TLS cert για όλα
+# =============================================================================
+*.vetcloud.gr, vetcloud.gr {
+
+    # Wildcard TLS μέσω Cloudflare DNS Challenge
+    # (HTTP challenge δεν λειτουργεί για wildcards)
+    tls {
+        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+    }
+
+    # --- API Routes → Go Backend ---
+    # Το Host header περνάει αυτούσιο → backend διαβάζει subdomain → tenant slug
+    handle /api/* {
+        reverse_proxy backend:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # --- Frontend → Static Files (nginx) ---
+    handle {
+        reverse_proxy frontend:80 {
+            header_up Host {host}
+        }
+    }
+
+    # --- Security Headers ---
+    header {
+        X-Content-Type-Options          "nosniff"
+        X-Frame-Options                 "SAMEORIGIN"
+        Referrer-Policy                 "strict-origin-when-cross-origin"
+        Strict-Transport-Security       "max-age=31536000; includeSubDomains; preload"
+        Permissions-Policy              "geolocation=(), microphone=(), camera=()"
+        -Server
+    }
+
+    # --- Compression ---
+    encode gzip
+
+    # --- Logging ---
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+}

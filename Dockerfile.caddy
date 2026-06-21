@@ -1,0 +1,24 @@
+# =============================================================================
+# Dockerfile.caddy — Custom Caddy με Cloudflare DNS Plugin
+# =============================================================================
+# Απαιτείται για wildcard SSL certificates (*.vetcloud.gr)
+# Standard caddy:alpine ΔΕΝ περιέχει DNS plugins.
+#
+# Build: docker build -f Dockerfile.caddy -t vetcloud-caddy .
+# =============================================================================
+
+FROM caddy:2-builder AS builder
+
+# Χτίζει custom Caddy με το Cloudflare DNS plugin
+RUN xcaddy build \
+    --with github.com/caddy-dns/cloudflare
+
+# ---
+
+FROM caddy:2-alpine
+
+# Αντίγραφο custom binary
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy
+
+# Δημιουργία log directory
+RUN mkdir -p /var/log/caddy

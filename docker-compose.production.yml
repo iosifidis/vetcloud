@@ -1,0 +1,143 @@
+# =============================================================================
+# VetCloud Docker Compose — Production
+# =============================================================================
+# Usage:
+#   docker compose -f docker-compose.production.yml up -d
+#
+# Απαιτήσεις:
+#   - .env.production αρχείο με όλες τις μεταβλητές
+#   - Εξωτερικό caddy_network (δημιουργημένο από Caddy container)
+#   - DNS wildcard record στο Cloudflare (*.vetcloud.gr → server IP)
+#
+# Δημιουργία Caddy network (μια φορά στον server):
+#   docker network create caddy_network
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — Tenant Database
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: vetcloud-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pims_db}
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-pims_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — Catalog Database (multi-tenant)
+  # ---------------------------------------------------------------------------
+  catalog-db:
+    image: postgres:16-alpine
+    container_name: vetcloud-catalog-db
+    restart: always
+    environment:
+      POSTGRES_DB: vetcloud_catalog
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - catalog_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d vetcloud_catalog"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # Go Backend API
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend-go
+      dockerfile: Dockerfile
+    container_name: vetcloud-backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      catalog-db:
+        condition: service_healthy
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-pims_db}?sslmode=disable
+      CATALOG_DATABASE_URL: postgres://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@catalog-db:5432/vetcloud_catalog?sslmode=disable
+      ENVIRONMENT: production
+    # Δεν εκθέτουμε port — μόνο μέσω Caddy
+    expose:
+      - "8080"
+    networks:
+      - internal
+      - caddy_network  # Caddy μπορεί να το βρει με hostname "backend"
+
+  # ---------------------------------------------------------------------------
+  # React Frontend (production — static + nginx)
+  # Θα ενεργοποιηθεί μόλις κάνουμε production Dockerfile
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.production  # multi-stage: build + nginx
+    container_name: vetcloud-frontend
+    restart: always
+    depends_on:
+      - backend
+    expose:
+      - "80"
+    networks:
+      - internal
+      - caddy_network
+
+  # ---------------------------------------------------------------------------
+  # Caddy — Custom image με Cloudflare DNS plugin
+  # ---------------------------------------------------------------------------
+  caddy:
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+    container_name: vetcloud-caddy
+    restart: always
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+    environment:
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
+    volumes:
+      - ./Caddyfile.production:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    networks:
+      - caddy_network  # μόνο caddy_network — δεν χρειάζεται internal
+
+networks:
+  internal:
+    driver: bridge
+  caddy_network:
+    external: true  # δημιουργημένο εξωτερικά: docker network create caddy_network
+
+volumes:
+  pgdata:
+  catalog_pgdata:
+  caddy_data:
+  caddy_config:
+  caddy_logs:

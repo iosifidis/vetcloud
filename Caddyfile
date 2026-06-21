@@ -1,21 +1,29 @@
-# VetCloud Caddyfile — Development
-# In production, replace :80 with your domain (e.g., vetcloud.example.com)
+# =============================================================================
+# VetCloud — Caddyfile (Development)
+# =============================================================================
+# Usage: docker compose up -d
+# Δεν απαιτεί SSL certificate — τρέχει στο localhost:80
+# Για multi-tenant dev: χρήση X-Tenant-ID header
+#   curl -H "X-Tenant-ID: clinic-a" http://localhost/api/tenant/settings
 
 :80 {
-    # API routes → Go backend
+    # Πέρνα το Host header στο backend (χρειάζεται για tenant resolution)
     handle /api/* {
-        reverse_proxy backend:8080
+        reverse_proxy backend:8080 {
+            header_up Host {host}
+        }
     }
 
-    # Frontend → React dev server
+    # Frontend dev server
     handle {
         reverse_proxy frontend:5173
     }
 
     # Security headers
     header {
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "DENY"
-        Referrer-Policy "strict-origin-when-cross-origin"
+        X-Content-Type-Options  "nosniff"
+        X-Frame-Options         "SAMEORIGIN"
+        Referrer-Policy         "strict-origin-when-cross-origin"
+        -Server
     }
 }
