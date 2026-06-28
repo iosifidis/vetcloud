@@ -191,6 +191,8 @@ npm run lint
 | `JWT_SECRET` | JWT signing key (min 32 chars) | - |
 | `SUPER_ADMIN_KEY` | API key για super-admin endpoints | - |
 | `CLOUDFLARE_API_TOKEN` | Για wildcard SSL (production) | - |
+| `ENCRYPTION_KEY` | Hex κλειδί 32-bytes για OIDC secrets | - |
+| `OIDC_REDIRECT_URL` | URI επιστροφής από τον OIDC provider | - |
 
 ---
 

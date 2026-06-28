@@ -19,9 +19,12 @@ import (
 	"github.com/iosifidis/vetcloud/internal/client"
 	"github.com/iosifidis/vetcloud/internal/config"
 	"github.com/iosifidis/vetcloud/internal/dashboard"
+	"github.com/iosifidis/vetcloud/internal/db"
 	"github.com/iosifidis/vetcloud/internal/medicalrecord"
 	"github.com/iosifidis/vetcloud/internal/middleware"
+	"github.com/iosifidis/vetcloud/internal/oidcauth"
 	"github.com/iosifidis/vetcloud/internal/patient"
+	"github.com/iosifidis/vetcloud/internal/settings"
 	"github.com/iosifidis/vetcloud/internal/tenant"
 	"github.com/iosifidis/vetcloud/internal/user"
 )
@@ -108,6 +111,12 @@ func main() {
 	// Create shared auth service (used by handlers for middleware)
 	authSvc := auth.NewService(cfg)
 
+	// Create database queries helper
+	queries := db.New(pool)
+
+	// Create settings service
+	settingsSvc := settings.NewService(queries, cfg.EncryptionKey)
+
 	// Register domain handlers
 	auth.RegisterRoutes(r, cfg, pool)
 	client.RegisterRoutes(r, cfg, pool, authSvc)
@@ -116,6 +125,10 @@ func main() {
 	medicalrecord.RegisterRoutes(r, cfg, pool, authSvc)
 	dashboard.RegisterRoutes(r, cfg, pool, authSvc)
 	user.RegisterRoutes(r, cfg, pool, authSvc)
+
+	// Register settings and OIDC handlers
+	settings.RegisterRoutes(r, settingsSvc, authSvc)
+	oidcauth.RegisterRoutes(r, authSvc, settingsSvc, queries, cfg.OIDCRedirectURL, cfg.AllowedOrigins[0])
 
 	// Register tenant management handlers
 	if !cfg.SingleTenant {

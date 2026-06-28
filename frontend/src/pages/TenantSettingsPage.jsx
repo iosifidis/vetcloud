@@ -16,7 +16,17 @@ const TenantSettingsPage = () => {
         logoUrl: '',
         enabledModules: []
     });
+
+    const [oidcData, setOidcData] = useState({
+        enabled: false,
+        issuerUrl: '',
+        clientId: '',
+        clientSecret: '',
+        secretSet: false
+    });
+
     const [saving, setSaving] = useState(false);
+    const [loadingOIDC, setLoadingOIDC] = useState(true);
     const [message, setMessage] = useState('');
 
     const availableModules = [
@@ -44,9 +54,41 @@ const TenantSettingsPage = () => {
         }
     }, [user, navigate, settings]);
 
+    useEffect(() => {
+        const fetchOIDC = async () => {
+            try {
+                const response = await api.get('/api/settings/oidc');
+                setOidcData({
+                    enabled: response.data.enabled || false,
+                    issuerUrl: response.data.issuerUrl || '',
+                    clientId: response.data.clientId || '',
+                    clientSecret: '',
+                    secretSet: response.data.secretSet || false
+                });
+            } catch (err) {
+                console.error("Failed to load OIDC settings:", err);
+            } finally {
+                setLoadingOIDC(false);
+            }
+        };
+        if (user && user.role === 'ADMIN') {
+            fetchOIDC();
+        }
+    }, [user]);
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleOIDCInputChange = (e) => {
+        const { name, value } = e.target;
+        setOidcData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleOIDCToggle = (e) => {
+        const { checked } = e.target;
+        setOidcData(prev => ({ ...prev, enabled: checked }));
     };
 
     const handleModuleToggle = (moduleId) => {
@@ -65,9 +107,27 @@ const TenantSettingsPage = () => {
         setSaving(true);
         setMessage('');
         try {
-            const response = await api.put('/tenant/settings', formData);
+            // Save clinic branding settings
+            const response = await api.put('/api/settings/clinic', formData);
             updateSettings(response.data);
+
+            // Save OIDC settings
+            const oidcResponse = await api.put('/api/settings/oidc', {
+                enabled: oidcData.enabled,
+                issuerUrl: oidcData.issuerUrl,
+                clientId: oidcData.clientId,
+                clientSecret: oidcData.clientSecret
+            });
+            
+            setOidcData(prev => ({
+                ...prev,
+                secretSet: oidcResponse.data.secretSet,
+                clientSecret: ''
+            }));
+
             setMessage('Οι ρυθμίσεις αποθηκεύτηκαν επιτυχώς!');
+            // Refresh settings globally
+            fetchSettings();
             setTimeout(() => setMessage(''), 3000);
         } catch (error) {
             console.error("Failed to save settings:", error);
@@ -185,7 +245,7 @@ const TenantSettingsPage = () => {
                                             checked={formData.enabledModules.includes(module.id)}
                                             onChange={() => handleModuleToggle(module.id)}
                                             className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                                            disabled={module.id === 'users'} // Prevent disabling core module
+                                            disabled={module.id === 'users'}
                                         />
                                     </div>
                                     <div className="ml-3 text-sm">
@@ -196,6 +256,84 @@ const TenantSettingsPage = () => {
                                 </div>
                             ))}
                         </div>
+                    </div>
+
+                    <div className="hidden sm:block" aria-hidden="true">
+                        <div className="py-5"><div className="border-t border-gray-200" /></div>
+                    </div>
+
+                    {/* OIDC Settings */}
+                    <div>
+                        <h3 className="text-lg leading-6 font-medium text-gray-900">Σύνδεση OIDC (Single Sign-On)</h3>
+                        <p className="mt-1 text-sm text-gray-500">Ρυθμίστε τη σύνδεση μέσω κεντρικού παρόχου (Authentik, Keycloak).</p>
+                        
+                        {loadingOIDC ? (
+                            <p className="mt-4 text-sm text-gray-400">Φόρτωση ρυθμίσεων OIDC...</p>
+                        ) : (
+                            <div className="mt-4 space-y-4">
+                                <div className="flex items-start">
+                                    <div className="flex items-center h-5">
+                                        <input
+                                            id="oidcEnabled"
+                                            name="oidcEnabled"
+                                            type="checkbox"
+                                            checked={oidcData.enabled}
+                                            onChange={handleOIDCToggle}
+                                            className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                                        />
+                                    </div>
+                                    <div className="ml-3 text-sm">
+                                        <label htmlFor="oidcEnabled" className="font-medium text-gray-700">
+                                            Ενεργοποίηση OIDC
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {oidcData.enabled && (
+                                    <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 pl-7 transition-all duration-150">
+                                        <div className="sm:col-span-2">
+                                            <label htmlFor="issuerUrl" className="block text-sm font-medium text-gray-700">Issuer URL</label>
+                                            <input
+                                                type="url"
+                                                name="issuerUrl"
+                                                id="issuerUrl"
+                                                value={oidcData.issuerUrl}
+                                                onChange={handleOIDCInputChange}
+                                                placeholder="https://authentik.company.com/application/o/vetcloud/"
+                                                className="mt-1 p-2 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md border"
+                                                required={oidcData.enabled}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="clientId" className="block text-sm font-medium text-gray-700">Client ID</label>
+                                            <input
+                                                type="text"
+                                                name="clientId"
+                                                id="clientId"
+                                                value={oidcData.clientId}
+                                                onChange={handleOIDCInputChange}
+                                                className="mt-1 p-2 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md border"
+                                                required={oidcData.enabled}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="clientSecret" className="block text-sm font-medium text-gray-700">
+                                                Client Secret {oidcData.secretSet && <span className="text-xs text-green-600 font-semibold">(Έχει ρυθμιστεί)</span>}
+                                            </label>
+                                            <input
+                                                type="password"
+                                                name="clientSecret"
+                                                id="clientSecret"
+                                                value={oidcData.clientSecret}
+                                                onChange={handleOIDCInputChange}
+                                                placeholder={oidcData.secretSet ? "••••••••••••••••" : ""}
+                                                className="mt-1 p-2 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md border"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="pt-5 flex justify-end">

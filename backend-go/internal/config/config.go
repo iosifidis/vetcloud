@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strconv"
@@ -33,6 +34,13 @@ type Config struct {
 	// CORS
 	AllowedOrigins []string
 
+	// Encryption (AES-256 for sensitive DB values like OIDC secrets)
+	// Must be 32 bytes, provided as 64-char hex string via ENCRYPTION_KEY env var
+	EncryptionKey []byte
+
+	// OIDC
+	OIDCRedirectURL string // e.g. https://vetcloud.gr/api/auth/oidc/callback
+
 	// Environment
 	Environment string // "development", "production"
 }
@@ -50,6 +58,7 @@ func Load() (*Config, error) {
 		AccessTokenDuration:  getEnvDuration("ACCESS_TOKEN_DURATION", 15*time.Minute),
 		RefreshTokenDuration: getEnvDuration("REFRESH_TOKEN_DURATION", 7*24*time.Hour),
 		AllowedOrigins:       []string{getEnv("CORS_ORIGIN", "http://localhost:5173")},
+		OIDCRedirectURL:      getEnv("OIDC_REDIRECT_URL", "http://localhost:8080/api/auth/oidc/callback"),
 		Environment:          getEnv("ENVIRONMENT", "development"),
 	}
 
@@ -58,7 +67,6 @@ func Load() (*Config, error) {
 		if cfg.Environment == "production" {
 			return nil, fmt.Errorf("JWT_SECRET is required in production")
 		}
-		// Use a default for development only
 		cfg.JWTSecret = "dev-secret-change-me-in-production-please"
 	}
 
@@ -69,6 +77,21 @@ func Load() (*Config, error) {
 	if !cfg.SingleTenant && cfg.CatalogDatabaseURL == "" {
 		return nil, fmt.Errorf("CATALOG_DATABASE_URL is required in multi-tenant mode")
 	}
+
+	// Parse ENCRYPTION_KEY (64-char hex → 32 bytes)
+	encKeyHex := getEnv("ENCRYPTION_KEY", "")
+	if encKeyHex == "" {
+		if cfg.Environment == "production" {
+			return nil, fmt.Errorf("ENCRYPTION_KEY is required in production (generate: openssl rand -hex 32)")
+		}
+		// Development fallback — NOT secure, but avoids crash during local dev
+		encKeyHex = "0000000000000000000000000000000000000000000000000000000000000000"
+	}
+	key, err := hex.DecodeString(encKeyHex)
+	if err != nil || len(key) != 32 {
+		return nil, fmt.Errorf("ENCRYPTION_KEY must be a 64-char hex string (32 bytes)")
+	}
+	cfg.EncryptionKey = key
 
 	return cfg, nil
 }

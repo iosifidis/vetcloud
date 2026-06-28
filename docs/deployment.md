@@ -285,3 +285,48 @@ docker compose ps
 # Αν catalog-db δεν είναι healthy, ελέγξε τα logs:
 docker compose logs catalog-db
 ```
+
+---
+
+## 🔐 6. Σύνδεση OIDC / SSO (Authentik, Keycloak)
+
+Η εφαρμογή υποστηρίζει OpenID Connect (OIDC) για ταυτοποίηση μέσω κεντρικού παρόχου (π.χ. Authentik, Keycloak).
+
+### Βήμα 1: Ρύθμιση Key/Secrets στο `.env`
+
+Για την ασφαλή κρυπτογράφηση (AES-256-GCM) των client secrets στη βάση δεδομένων, πρέπει να οριστεί ένα κλειδί κρυπτογράφησης 32-bytes (64 hex χαρακτήρες):
+
+```env
+# Δημιουργία κλειδιού: openssl rand -hex 32
+ENCRYPTION_KEY=d7c6fdf16d57ba8d3cbfa2f643e264627bca4df8db8f7e2d9ca081d4a0a184ef
+
+# URL ανακατεύθυνσης (πρέπει να συμπίπτει με αυτό που δηλώνεται στον OIDC Provider)
+OIDC_REDIRECT_URL=https://clinic-a.vetcloud.gr/api/auth/oidc/callback
+```
+
+### Βήμα 2: Ρύθμιση στον OIDC Provider (Authentik / Keycloak)
+
+1. Δημιουργήστε ένα νέο OAuth2/OIDC Application.
+2. Ορίστε το Redirect/Callback URI σε: `https://<your-subdomain>.vetcloud.gr/api/auth/oidc/callback`
+3. Επιτρέψτε τα Scopes: `openid`, `profile`, `email`.
+4. Αντιγράψτε το **Client ID** και το **Client Secret**.
+
+### Βήμα 3: Ενεργοποίηση & Διαμόρφωση στην Εφαρμογή
+
+1. Συνδεθείτε στο VetCloud ως **ADMIN**.
+2. Μεταβείτε στις **Ρυθμίσεις Ιατρείου** (`/settings/tenant`).
+3. Ενεργοποιήστε την επιλογή **Ενεργοποίηση OIDC**.
+4. Συμπληρώστε τα πεδία:
+   - **Issuer URL**: Η διεύθυνση του OIDC provider (π.χ. `https://authentik.company.com/application/o/vetcloud/`).
+   - **Client ID**: Το Client ID από το βήμα 2.
+   - **Client Secret**: Το Client Secret από το βήμα 2.
+5. Πατήστε **Αποθήκευση Αλλαγών**.
+
+Η επιλογή "Σύνδεση μέσω SSO (OIDC)" θα εμφανιστεί αυτόματα στη σελίδα σύνδεσης (`/login`).
+
+### Λογική Provisioning Νέων Χρηστών
+
+Όταν ένας χρήστης συνδέεται για πρώτη φορά μέσω SSO:
+1. Αν υπάρχει ήδη χρήστης με το ίδιο email, ο λογαριασμός συνδέεται αυτόματα.
+2. Αν δεν υπάρχει, δημιουργείται νέος χρήστης με ρόλο **CLIENT** (Pet Owner) και συνδεδεμένο προφίλ πελάτη.
+3. Ένας διαχειριστής (Admin) μπορεί στη συνέχεια να μετατρέψει τον χρήστη σε **VET** (Κτηνίατρο) ή **ADMIN** μέσα από τη σελίδα **Χρήστες & Προσωπικό** (`/users`).

@@ -24,8 +24,7 @@ export const TenantProvider = ({ children }) => {
             setLoading(true);
             const API_BASE_URL = getApiBaseUrl();
             // Note: We use raw axios here because this runs before login and doesn't need auth
-            // The backend tenant middleware will extract the tenant from the Host header
-            const response = await axios.get(`${API_BASE_URL}/tenant/settings`);
+            const response = await axios.get(`${API_BASE_URL}/settings/public`);
             
             if (response.data) {
                 setTenantSettings(response.data);
@@ -33,8 +32,15 @@ export const TenantProvider = ({ children }) => {
             }
         } catch (err) {
             console.error("Failed to load tenant settings:", err);
-            // If it's a 400/404, it might mean the tenant doesn't exist
-            setError("Το ιατρείο δεν βρέθηκε ή δεν είναι ενεργό.");
+            // Default to empty state but do not crash on single-clinic development if not seeded
+            setTenantSettings({
+                clinicName: 'VetCloud',
+                primaryColor: '#3b82f6',
+                secondaryColor: '#1e40af',
+                logoUrl: '',
+                enabledModules: ['appointments', 'clients', 'patients', 'records', 'users'],
+                oidcEnabled: false
+            });
         } finally {
             setLoading(false);
         }

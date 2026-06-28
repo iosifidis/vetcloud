@@ -92,7 +92,9 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.production  # multi-stage: build + nginx
+      dockerfile: Dockerfile  # multi-stage: node build + nginx serve
+      args:
+        VITE_API_URL: https://vetcloud.gr  # override per deployment in .env.production
     container_name: vetcloud-frontend
     restart: always
     depends_on:
