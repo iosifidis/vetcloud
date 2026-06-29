@@ -128,7 +128,7 @@ func main() {
 
 	// Register settings and OIDC handlers
 	settings.RegisterRoutes(r, settingsSvc, authSvc)
-	oidcauth.RegisterRoutes(r, authSvc, settingsSvc, queries, cfg.OIDCRedirectURL, cfg.AllowedOrigins[0])
+	oidcauth.RegisterRoutes(r, authSvc, settingsSvc, queries, cfg.OIDCRedirectURL, cfg.AllowedOrigins[0], cfg.Environment == "production")
 
 	// Register tenant management handlers
 	if !cfg.SingleTenant {

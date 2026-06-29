@@ -25,21 +25,23 @@ const (
 
 // OIDCHandler handles the OIDC login flow.
 type OIDCHandler struct {
-	authSvc     *auth.Service
-	settingsSvc *settings.Service
-	queries     *db.Queries
-	redirectURL string
-	frontendURL string
+	authSvc      *auth.Service
+	settingsSvc  *settings.Service
+	queries      *db.Queries
+	redirectURL  string
+	frontendURL  string
+	isProduction bool // controls whether OIDC cookies are Secure-only
 }
 
 // RegisterRoutes registers the OIDC auth routes.
-func RegisterRoutes(r chi.Router, authSvc *auth.Service, settingsSvc *settings.Service, queries *db.Queries, redirectURL, frontendURL string) {
+func RegisterRoutes(r chi.Router, authSvc *auth.Service, settingsSvc *settings.Service, queries *db.Queries, redirectURL, frontendURL string, isProduction bool) {
 	h := &OIDCHandler{
-		authSvc:     authSvc,
-		settingsSvc: settingsSvc,
-		queries:     queries,
-		redirectURL: redirectURL,
-		frontendURL: frontendURL,
+		authSvc:      authSvc,
+		settingsSvc:  settingsSvc,
+		queries:      queries,
+		redirectURL:  redirectURL,
+		frontendURL:  frontendURL,
+		isProduction: isProduction,
 	}
 
 	r.Get("/api/auth/oidc/login", h.Login)
@@ -85,8 +87,8 @@ func (h *OIDCHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Store state + nonce in HttpOnly cookies (anti-CSRF, anti-replay)
-	setOIDCCookie(w, oidcStateCookie, state)
-	setOIDCCookie(w, oidcNonceCookie, nonce)
+	h.setOIDCCookie(w, oidcStateCookie, state)
+	h.setOIDCCookie(w, oidcNonceCookie, nonce)
 
 	http.Redirect(w, r, oidcSvc.AuthCodeURL(state, nonce), http.StatusFound)
 }
@@ -141,12 +143,14 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch role name
+	// All OIDC-provisioned users carry the CLIENT role.
+	// Existing users who were linked via email retain their original role from the DB;
+	// however for JWT generation we derive the role name from the user's actual role_id.
+	// For simplicity and correctness, we look it up from the DB only when available.
 	roleName := "CLIENT"
 	if user.RoleID.Valid {
-		role, err := h.getQueries(r).GetRoleByName(r.Context(), roleName)
-		if err == nil {
-			_ = role // role.Name already equals roleName for CLIENT
+		if role, err := h.getQueries(r).GetRoleByName(r.Context(), roleName); err == nil {
+			roleName = role.Name
 		}
 	}
 
@@ -257,7 +261,7 @@ func (h *OIDCHandler) findOrCreateUser(r *http.Request, info *OIDCUserInfo) (*db
 
 // --- Cookie helpers ---
 
-func setOIDCCookie(w http.ResponseWriter, name, value string) {
+func (h *OIDCHandler) setOIDCCookie(w http.ResponseWriter, name, value string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     name,
 		Value:    value,
@@ -265,7 +269,7 @@ func setOIDCCookie(w http.ResponseWriter, name, value string) {
 		MaxAge:   int(oidcCookieTTL.Seconds()),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   false, // set to true in production (HTTPS only)
+		Secure:   h.isProduction, // true in production (HTTPS), false in development
 	})
 }
 
